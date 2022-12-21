@@ -3,6 +3,7 @@ import HtmlWebpackPlugin from "html-webpack-plugin";
 import createBareServer from "@tomphttp/bare-server-node";
 import webpack from "webpack";
 import { fileURLToPath } from "url";
+import ForkTsCheckerWebpackPlugin from "fork-ts-checker-webpack-plugin";
 
 /**
  * @typedef {webpack.Configuration & {devServer: import('webpack-dev-server').Configuration}} CompleteConfig
@@ -20,7 +21,7 @@ process.env.BARE_SERVER = devServerBare;
  * @type {CompleteConfig}
  */
 const config = {
-  entry: "./src/index.ts",
+  entry: "./src/index.tsx",
   output: {
     path: fileURLToPath(new URL("./dist/", import.meta.url)),
     filename: "spacord.js",
@@ -42,10 +43,13 @@ const config = {
       return middlewares;
     },
   },
+  resolve: {
+    extensions: [".mjs", ".js", ".ts", ".tsx", ".json", ".jsx"],
+  },
   module: {
     rules: [
       {
-        test: /\.ts$/,
+        test: /\.tsx?$/,
         exclude: /node_modules/,
         use: {
           loader: "swc-loader",
@@ -54,6 +58,12 @@ const config = {
               parser: {
                 syntax: "typescript",
               },
+              transform: {
+                react: {
+                  pragma: "h",
+                  pragmaFrag: "Fragment",
+                },
+              },
             },
           },
         },
@@ -61,6 +71,7 @@ const config = {
     ],
   },
   plugins: [
+    new ForkTsCheckerWebpackPlugin(),
     new HtmlWebpackPlugin({
       template: fileURLToPath(new URL("./index.html", import.meta.url)),
     }),
