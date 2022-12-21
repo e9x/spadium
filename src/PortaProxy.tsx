@@ -14,7 +14,7 @@ export default function PortaProxy({ client }: { client: BareClient }) {
 
   return (
     <>
-      {!win && <h1>Porta Proxy will now load.</h1>}
+      {!win && <h1>PortaProxy will now load.</h1>}
       <iframe
         style={{ border: "none", width: "700px", height: "700px" }}
         onLoad={(event) =>
