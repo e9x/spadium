@@ -1,4 +1,5 @@
 import type BareClient from "@tomphttp/bare-client";
+import type { BareResponseFetch } from "@tomphttp/bare-client";
 import type { CssNode, Raw } from "css-tree";
 import { generate, parse, walk } from "css-tree";
 
@@ -68,18 +69,27 @@ async function modifyCSS(
 
 export type Win = typeof globalThis;
 
+const redirectStatusCodes = [300, 301, 302, 303, 304, 305, 307, 308];
+
 export default async function loadDOM(
-  location: URL,
+  req: Request,
   win: Win,
   client: BareClient
 ) {
-  const res = await request(
-    new Request(location.toString()),
-    "document",
-    client
-  );
-  if (!res.ok) throw new Error("Not OK");
-  location.href = res.finalURL;
+  let res: BareResponseFetch;
+
+  while (true) {
+    res = await request(req, "document", client);
+    if (redirectStatusCodes.includes(res.status)) {
+      const location = new URL(res.headers.get("location") || "", req.url);
+      req = new Request(location);
+      continue;
+    }
+    if (!res.ok) throw new Error("Not OK");
+    break;
+  }
+
+  const location = new URL(res.finalURL);
   const protoDom = new DOMParser().parseFromString(
     await res.text(),
     "text/html"
@@ -110,12 +120,38 @@ export default async function loadDOM(
 
   for (const script of protoDom.querySelectorAll("script")) script.remove();
 
-  for (const anchor of protoDom.querySelectorAll("a")) {
+  for (const anchor of protoDom.querySelectorAll("a"))
     anchor.addEventListener("click", (event) => {
       event.preventDefault();
-      loadDOM(new URL(anchor.href), win, client);
+      loadDOM(new Request(anchor.href), win, client);
     });
-  }
+
+  for (const form of protoDom.querySelectorAll("form"))
+    form.addEventListener("submit", (event) => {
+      event.preventDefault();
+      const query = new URLSearchParams();
+
+      for (let i = 0; i < form.elements.length; i++) {
+        const node = form.elements[i] as HTMLInputElement;
+        query.set(node.name, node.value);
+      }
+
+      let req: Request;
+
+      if (form.method === "post") {
+        req = new Request(form.action, {
+          method: "POST",
+          body: query,
+        });
+      } else {
+        const url = new URL(form.action);
+        url.search = `?${query}`;
+
+        req = new Request(url);
+      }
+
+      loadDOM(req, win, client);
+    });
 
   win.document.doctype?.remove();
   win.document.documentElement.remove();
