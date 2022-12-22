@@ -9,7 +9,7 @@ export default function PortaProxy({ client }: { client: BareClient }) {
 
   useEffect(() => {
     if (!win) return;
-    createDOM("https://discord.com/login", win, client);
+    createDOM("https://www.google.com/", win, client);
   }, [client, win]);
 
   return (

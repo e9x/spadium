@@ -1,213 +1,159 @@
 import type BareClient from "@tomphttp/bare-client";
+import type { CssNode, Raw } from "css-tree";
+import { generate, parse, walk } from "css-tree";
 
-interface WinProps {
-  fakeLocation: Location;
-}
+async function modifyCSS(
+  script: string,
+  location: URL,
+  context = "stylesheet",
+  // so we can create a blob inside the window
+  win: Win,
+  client: BareClient
+) {
+  const tree = parse(script, { positions: true, context });
+  let offset = 0;
 
-export type Win = typeof globalThis & WinProps;
+  const assets: [
+    atruleName: string | void,
+    node: CssNode,
+    url: string,
+    blob?: string
+  ][] = [];
 
-function applyHooks(win: Win, client: BareClient) {
-  /*const observer = new MutationObserver((mutations) => {
-    for (const mutation of mutations) {
-      for (const node of mutation.addedNodes) {
-        if (node instanceof win.HTMLScriptElement) {
-          console.log("DETECT");
-          node.remove();
-          simulateScript(node, win, client);
-        }
+  walk(tree, function (node) {
+    if (node.type === "Url")
+      try {
+        assets.push([
+          this.atrule?.name,
+          node,
+          new URL(node.value as unknown as string, location).toString(),
+        ]);
+      } catch (err) {
+        console.error(err);
       }
-    }
   });
 
-  observer.observe(win.document, {
-    childList: true,
-    subtree: true,
-  });*/
+  for (const asset of assets) {
+    /*const raw = script.slice(
+      asset[1].loc!.start.offset - offset,
+      asset[1].loc!.end.offset - offset
+    );*/
 
-  win.document.head.appendChild = (node) => {
-    if (node instanceof win.HTMLScriptElement) {
-      simulateScript(node, win, client);
-    } else if (node instanceof win.HTMLLinkElement) {
-      if (node.rel === "stylesheet") simulateCSS(node, win, client);
-    } else if (node instanceof win.HTMLStyleElement) {
-      simulateCSS(node, win, client);
-    } else {
-      console.log(node.nodeName, "appent");
-    }
+    let generated = "";
 
-    return node;
-  };
+    const res = await request(new Request(asset[2]), "image", client);
 
-  Object.defineProperty(win.Object.prototype, "fakeLocation", {
-    get() {
-      return this.location;
-    },
-    set(v) {
-      this.location = v;
-    },
-  });
+    if (asset[0] === "import") {
+      /*replace = {
+            type: "Url",
+            value: <StringNode>routeCSS(resolved, url),
+          };*/
+      // TODO: fetch imported style
+    } else
+      generated = generate({
+        type: "Url",
+        value: win.URL.createObjectURL(await res.blob()) as unknown as Raw,
+      });
 
-  Object.defineProperty(win, "parent", { value: win, configurable: true });
-}
-
-async function simulateScript(
-  script: HTMLScriptElement,
-  win: Win,
-  client: BareClient
-) {
-  let source = script.textContent || "";
-
-  console.log(script.textContent);
-
-  if (script.src) {
-    const res = await client.fetch(script.src);
-    if (!res.ok) throw new TypeError("Bad res for script");
-    source = `//# sourceURL=${script.src}\n${await res.text()}`;
+    script =
+      script.slice(0, asset[1].loc!.start.offset - offset) +
+      generated +
+      script.slice(asset[1].loc!.end.offset - offset);
+    offset +=
+      asset[1].loc!.end.offset - asset[1].loc!.start.offset - generated.length;
   }
 
-  Object.defineProperty(win.document, "currentScript", {
-    value: script,
-    configurable: true,
-  });
-
-  source = source.replace(/\.location/g, ".fakeLocation");
-  const matches: string[] = [];
-
-  source.replace(/[\s\S]{10}?\w+\.top[\s\S]{10}?/g, (m) => {
-    matches.push(m);
-    return m;
-  });
-
-  console.log(matches);
-
-  const func = new win.Function("top", "location", source) as (
-    this: Win,
-    top: Win,
-    location: any
-  ) => void;
-  func.call(win, win, win.fakeLocation);
+  return script;
 }
 
-async function simulateCSS(
-  script: HTMLStyleElement | HTMLLinkElement,
-  win: Win,
-  client: BareClient
-) {
-  let source = (script instanceof HTMLStyleElement && script.textContent) || "";
-
-  if (script instanceof HTMLLinkElement) {
-    const res = await client.fetch(script.href);
-    if (!res.ok) throw new TypeError("Bad res for script");
-    source = `/*# sourceURL=${script.href}*/${await res.text()}`;
-  }
-
-  const style = document.createElement("style");
-  style.textContent = source;
-  win.document.head.append(style);
-}
-
-function fakeLocation(i: string, win: Win) {
-  const url = new URL(i);
-
-  const obj: Location = {
-    get host() {
-      return url.host;
-    },
-    set host(value: string) {
-      url.host = value;
-    },
-    get hostname() {
-      return url.hostname;
-    },
-    set hostname(value: string) {
-      url.hostname = value;
-    },
-    get href() {
-      return url.href;
-    },
-    set href(value: string) {
-      url.href = value;
-    },
-    get origin() {
-      return url.href;
-    },
-    set origin(value: string) {
-      url.href = value;
-    },
-    get port() {
-      return url.port;
-    },
-    set port(value: string) {
-      url.port = value;
-    },
-    get protocol() {
-      return url.protocol;
-    },
-    set protocol(value: string) {
-      url.protocol = value;
-    },
-    get pathname() {
-      return url.pathname;
-    },
-    set pathname(value: string) {
-      url.pathname = value;
-    },
-    get hash() {
-      return url.hash;
-    },
-    set hash(value: string) {
-      url.hash = value;
-    },
-    get search() {
-      return url.search;
-    },
-    set search(value: string) {
-      url.search = value;
-    },
-    ancestorOrigins: global.location.ancestorOrigins,
-    assign(url: string | URL) {
-      window.open(url, "_blank");
-    },
-    replace(url: string | URL) {
-      window.open(url, "_blank");
-    },
-    reload() {
-      global.location.reload();
-    },
-    toString() {
-      return url.toString();
-    },
-  };
-
-  win.fakeLocation = obj;
-}
+export type Win = typeof globalThis;
 
 export async function createDOM(url: string, win: Win, client: BareClient) {
-  fakeLocation(url, win);
-
-  applyHooks(win, client);
-
-  const res = await client.fetch(win.fakeLocation.toString());
+  const location = new URL(url);
+  const res = await request(
+    new Request(location.toString()),
+    "document",
+    client
+  );
+  console.log(res.status);
   if (!res.ok) throw new Error("Not OK");
   const protoDom = new DOMParser().parseFromString(
     await res.text(),
     "text/html"
   );
 
-  win.document.body.innerHTML =
-    '<link rel="icon" href="/assets/ec2c34cadd4b5f4594415127380a85e6.ico" />';
-
   const base = document.createElement("base");
-  base.href = win.fakeLocation.toString();
+  base.href = location.toString();
   protoDom.head.append(base);
   win.document.head.append(base.cloneNode());
 
-  const appMount = document.createElement("div");
-  appMount.id = "app-mount";
-  win.document.body.append(appMount);
-
-  for (const script of protoDom.querySelectorAll("script")) {
-    if (!script.textContent?.includes("document.createElement('iframe')"))
-      await simulateScript(script, win, client);
+  for (const link of protoDom.querySelectorAll<HTMLLinkElement>(
+    "link[rel='stylesheet']"
+  )) {
+    link.replaceWith(await simulateStyleLink(link, location, win, client));
   }
+
+  for (const noscript of protoDom.querySelectorAll("noscript")) {
+    const fragment = new DocumentFragment();
+    for (const child of noscript.children) fragment.append(child);
+    noscript.replaceWith(fragment);
+  }
+
+  for (const style of protoDom.querySelectorAll("style")) {
+    style.replaceWith(
+      await simulateStyle(style.textContent || "", location, win, client)
+    );
+  }
+
+  for (const script of protoDom.querySelectorAll("script")) script.remove();
+
+  win.document.doctype?.remove();
+  win.document.documentElement.remove();
+
+  if (protoDom.doctype) win.document.append(protoDom.doctype);
+  win.document.append(protoDom.documentElement);
+}
+
+async function simulateStyle(
+  source: string,
+  location: URL,
+  win: Win,
+  client: BareClient
+) {
+  const style = document.createElement("style");
+  style.textContent = await modifyCSS(
+    source,
+    location,
+    "stylesheet",
+    win,
+    client
+  );
+  return style;
+}
+
+async function simulateStyleLink(
+  node: HTMLLinkElement,
+  location: URL,
+  win: Win,
+  client: BareClient
+) {
+  const res = await request(new Request(node.href), "style", client);
+  if (!res.ok) throw new Error("Res was not ok");
+  return simulateStyle(await res.text(), location, win, client);
+}
+
+function request(req: Request, dest: RequestDestination, client: BareClient) {
+  // todo: produce our own user-agent?
+  const headers = new Headers(req.headers);
+  headers.set("user-agent", navigator.userAgent);
+  headers.set("sec-fetch-dest", dest);
+  return client.fetch(req.url, {
+    headers,
+    body: req.body,
+    // forcing cache greatly improves load times
+    cache: "force-cache",
+    signal: req.signal,
+    method: req.method,
+    redirect: req.redirect,
+  });
 }
