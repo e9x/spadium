@@ -60,12 +60,12 @@ const config = {
         use: {
           loader: "swc-loader",
           options: {
-            sourceMaps: true,
+            sourceMaps: "inline",
             inlineSourcesContent: true,
             jsc: {
-              parser: {
-                syntax: "typescript",
-              },
+              target: "es2022",
+              parser: { syntax: "typescript" },
+              externalHelpers: true,
               transform: {
                 react: {
                   pragma: "h",
