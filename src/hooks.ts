@@ -140,7 +140,6 @@ export default async function loadDOM(
       req = new Request(location);
       continue;
     }
-    if (!res.ok) throw new Error("Not OK");
     break;
   }
 
