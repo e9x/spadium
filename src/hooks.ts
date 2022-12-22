@@ -68,14 +68,18 @@ async function modifyCSS(
 
 export type Win = typeof globalThis;
 
-async function loadDOM(location: URL, win: Win, client: BareClient) {
+export default async function loadDOM(
+  location: URL,
+  win: Win,
+  client: BareClient
+) {
   const res = await request(
     new Request(location.toString()),
     "document",
     client
   );
-  console.log(res.status);
   if (!res.ok) throw new Error("Not OK");
+  location.href = res.finalURL;
   const protoDom = new DOMParser().parseFromString(
     await res.text(),
     "text/html"
@@ -118,10 +122,6 @@ async function loadDOM(location: URL, win: Win, client: BareClient) {
 
   if (protoDom.doctype) win.document.append(protoDom.doctype);
   win.document.append(protoDom.documentElement);
-}
-
-export async function createDOM(url: string, win: Win, client: BareClient) {
-  loadDOM(new URL(url), win, client);
 }
 
 async function simulateStyle(
