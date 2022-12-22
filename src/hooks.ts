@@ -1,15 +1,27 @@
 import type BareClient from "@tomphttp/bare-client";
 import type { SrcSetDefinition } from "srcset";
 import { parseSrcset, stringifySrcset } from "srcset";
-import type { BareFetchInit, BareResponseFetch } from "@tomphttp/bare-client";
 import type { CssNode, Raw } from "css-tree";
 import { generate, parse, walk } from "css-tree";
 
+const sClient = Symbol("spadium client");
 const location = Symbol("spadium location");
+const iframeSrc = Symbol("spadium iframe src");
 
-export type Win = typeof globalThis & { [location]: URL };
+declare global {
+  interface HTMLIFrameElement {
+    [iframeSrc]: string;
+  }
+}
 
-async function rewriteSrcset(srcset: string, win: Win, client: BareClient) {
+interface WinProps {
+  [location]: URL;
+  [sClient]: BareClient;
+}
+
+export type Win = typeof globalThis & WinProps;
+
+async function rewriteSrcset(srcset: string, win: Win) {
   const parsed = parseSrcset(srcset);
   const newSrcset: SrcSetDefinition[] = [];
 
@@ -18,8 +30,7 @@ async function rewriteSrcset(srcset: string, win: Win, client: BareClient) {
       url: await localizeResource(
         new URL(src.url, win[location]),
         "image",
-        win,
-        client
+        win
       ),
       ...(src.density ? { density: src.density } : {}),
       ...(src.width ? { width: src.width } : {}),
@@ -28,16 +39,12 @@ async function rewriteSrcset(srcset: string, win: Win, client: BareClient) {
   return stringifySrcset(newSrcset);
 }
 
-async function rewriteStyle(
-  style: CSSStyleDeclaration,
-  win: Win,
-  client: BareClient
-) {
+async function rewriteStyle(style: CSSStyleDeclaration, win: Win) {
   for (let i = 0; i < style.length; i++) {
     const property = style[i];
     style.setProperty(
       property,
-      await modifyCSS(style.getPropertyValue(property), "value", win, client)
+      await modifyCSS(style.getPropertyValue(property), "value", win)
     );
   }
 }
@@ -47,14 +54,12 @@ const validProtocols: string[] = ["http:", "https:"];
 async function localizeResource(
   url: string | URL,
   dest: RequestDestination,
-  win: Win,
-  client: BareClient
+  win: Win
 ) {
   const r = new URL(url);
-  console.trace(r);
-  if (!validProtocols.includes(r.host) || !r.host || r.protocol === "data:")
+  if (!validProtocols.includes(r.protocol) || !r.host || r.protocol === "data:")
     return r.toString();
-  const res = await request(new Request(r), dest, client);
+  const res = await request(new Request(r), dest, win);
   return win.URL.createObjectURL(await res.blob());
 }
 
@@ -62,8 +67,7 @@ async function modifyCSS(
   script: string,
   context: string,
   // so we can create a blob inside the window
-  win: Win,
-  client: BareClient
+  win: Win
 ) {
   const tree = parse(script, { positions: true, context });
   let offset = 0;
@@ -108,8 +112,7 @@ async function modifyCSS(
         value: (await localizeResource(
           asset[2],
           "image",
-          win,
-          client
+          win
         )) as unknown as Raw,
       });
     }
@@ -125,6 +128,17 @@ async function modifyCSS(
   return script;
 }
 
+async function rewriteSVG(svg: SVGSVGElement, win: Win) {
+  for (const image of svg.querySelectorAll("image")) {
+    const href = image.getAttribute("xlink:href");
+    if (href)
+      image.setAttribute(
+        "xlink:href",
+        await localizeResource(new URL(href, win[location]), "image", win)
+      );
+  }
+}
+
 const redirectStatusCodes = [300, 301, 302, 303, 304, 305, 307, 308];
 
 export default async function loadDOM(
@@ -132,20 +146,9 @@ export default async function loadDOM(
   win: Win,
   client: BareClient
 ) {
-  // Remove any blob URIs
-  win.location.reload();
+  win[sClient] = client;
 
-  let res: BareResponseFetch;
-
-  while (true) {
-    res = await request(req, "document", client, { redirect: "manual" });
-    if (redirectStatusCodes.includes(res.status)) {
-      const location = new URL(res.headers.get("location") || "", req.url);
-      req = new Request(location);
-      continue;
-    }
-    break;
-  }
+  const res = await request(req, "document", win);
 
   win[location] = new URL(res.finalURL);
 
@@ -162,7 +165,7 @@ export default async function loadDOM(
   for (const link of protoDom.querySelectorAll<HTMLLinkElement>(
     "link[rel='stylesheet']"
   ))
-    link.replaceWith(await simulateStyleLink(link, win, client));
+    link.replaceWith(await simulateStyleLink(link, win));
 
   for (const link of protoDom.querySelectorAll<HTMLLinkElement>(
     "link[rel='preload']"
@@ -176,51 +179,65 @@ export default async function loadDOM(
   }
 
   for (const style of protoDom.querySelectorAll("style")) {
-    style.replaceWith(
-      await simulateStyle(style.textContent || "", win, client)
-    );
+    style.replaceWith(await simulateStyle(style.textContent || "", win));
   }
 
   for (const script of protoDom.querySelectorAll("script")) script.remove();
+
+  for (const iframe of protoDom.querySelectorAll("iframe")) {
+    iframe[iframeSrc] = iframe.src;
+    iframe.src = "";
+    iframe.removeAttribute("sandbox");
+    iframe.removeAttribute("allow");
+  }
 
   for (const anchor of protoDom.querySelectorAll("a")) {
     if (anchor.ping) anchor.ping = "";
 
     anchor.addEventListener("click", (event) => {
       event.preventDefault();
-      const newWin = win.open(
-        undefined,
-        event.shiftKey
-          ? "new"
-          : event.ctrlKey || event.button === 1
-          ? "_blank"
-          : anchor.target || "_self"
-      );
+
+      const protocol = new URL(anchor.href).protocol;
+
+      if (protocol === "javascript:") return;
+
+      const winTarget = event.shiftKey
+        ? "new"
+        : event.ctrlKey || event.button === 1
+        ? "_blank"
+        : anchor.target || "_self";
+
+      if (!validProtocols.includes(protocol))
+        return win.open(anchor.href, winTarget);
+
+      const newWin = win.open(undefined, winTarget);
 
       if (!newWin) {
         console.error("error opening window", anchor.target, "...");
         return;
       }
 
-      loadDOM(new Request(anchor.href), newWin as unknown as Win, client);
+      loadDOM(new Request(anchor.href), newWin as unknown as Win, win[sClient]);
     });
   }
 
   for (const img of protoDom.querySelectorAll("img"))
-    if (img.src)
-      img.src = await localizeResource(img.src, "image", win, client);
+    if (img.src) img.src = await localizeResource(img.src, "image", win);
 
   for (const node of protoDom.querySelectorAll<HTMLElement>("*[style]"))
-    await rewriteStyle(node.style, win, client);
+    await rewriteStyle(node.style, win);
 
   for (const s of protoDom.querySelectorAll<
     HTMLImageElement | HTMLSourceElement
   >("img,source"))
-    if (s.srcset) s.srcset = await rewriteSrcset(s.srcset, win, client);
+    if (s.srcset) s.srcset = await rewriteSrcset(s.srcset, win);
 
   for (const video of protoDom.querySelectorAll("video"))
     if (video.poster)
-      video.poster = await localizeResource(video.poster, "image", win, client);
+      video.poster = await localizeResource(video.poster, "image", win);
+
+  for (const svg of protoDom.querySelectorAll("svg"))
+    await rewriteSVG(svg, win);
 
   for (const form of protoDom.querySelectorAll("form"))
     form.addEventListener("submit", (event) => {
@@ -246,7 +263,7 @@ export default async function loadDOM(
         req = new Request(url);
       }
 
-      loadDOM(req, win, client);
+      loadDOM(req, win, win[sClient]);
     });
 
   win.document.doctype?.remove();
@@ -256,28 +273,37 @@ export default async function loadDOM(
   win.document.append(protoDom.documentElement);
 }
 
-async function simulateStyle(source: string, win: Win, client: BareClient) {
+async function simulateStyle(source: string, win: Win) {
   const style = document.createElement("style");
-  style.textContent = await modifyCSS(source, "stylesheet", win, client);
+  style.textContent = await modifyCSS(source, "stylesheet", win);
   return style;
 }
 
-async function simulateStyleLink(
-  node: HTMLLinkElement,
-  win: Win,
-  client: BareClient
-) {
-  const res = await request(new Request(node.href), "style", client);
+async function simulateStyleLink(node: HTMLLinkElement, win: Win) {
+  const res = await request(new Request(node.href), "style", win);
   if (!res.ok) throw new Error("Res was not ok");
-  return simulateStyle(await res.text(), win, client);
+  return simulateStyle(await res.text(), win);
 }
 
-function request(
-  req: Request,
-  dest: RequestDestination,
-  client: BareClient,
-  override?: BareFetchInit
-) {
+async function request(req: Request, dest: RequestDestination, win: Win) {
+  while (true) {
+    const res = await _request(req, dest, win[sClient]);
+    for (const name in res.rawHeaders) {
+      if (name.toLowerCase() === "set-cookie") {
+        console.log("got set-cookie", res.rawHeaders[name]);
+      }
+    }
+
+    if (redirectStatusCodes.includes(res.status)) {
+      const location = new URL(res.headers.get("location") || "", req.url);
+      req = new Request(location);
+    }
+    return res;
+  }
+}
+
+function _request(req: Request, dest: RequestDestination, client: BareClient) {
+  if (!client) throw new Error("OK");
   // todo: produce our own user-agent?
   const headers = new Headers(req.headers);
   headers.set("user-agent", navigator.userAgent);
@@ -290,6 +316,5 @@ function request(
     signal: req.signal,
     method: req.method,
     redirect: req.redirect,
-    ...override,
   });
 }
