@@ -24,7 +24,7 @@ const config = {
   entry: "./src/index.tsx",
   output: {
     path: fileURLToPath(new URL("./dist/", import.meta.url)),
-    filename: "spacord.js",
+    filename: "spadium.js",
   },
   devtool: isProd ? "source-map" : "eval",
   mode: process.env.NODE_ENV,

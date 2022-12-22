@@ -31,7 +31,7 @@ export default function Setup() {
     <PortaProxy req={req} client={bareClient} />
   ) : (
     <>
-      <h1>Spacord</h1>
+      <h1>Spadium</h1>
       <hr />
       <form
         onSubmit={async (event) => {
