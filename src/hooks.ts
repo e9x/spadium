@@ -68,8 +68,7 @@ async function modifyCSS(
 
 export type Win = typeof globalThis;
 
-export async function createDOM(url: string, win: Win, client: BareClient) {
-  const location = new URL(url);
+async function loadDOM(location: URL, win: Win, client: BareClient) {
   const res = await request(
     new Request(location.toString()),
     "document",
@@ -107,11 +106,22 @@ export async function createDOM(url: string, win: Win, client: BareClient) {
 
   for (const script of protoDom.querySelectorAll("script")) script.remove();
 
+  for (const anchor of protoDom.querySelectorAll("a")) {
+    anchor.addEventListener("click", (event) => {
+      event.preventDefault();
+      loadDOM(new URL(anchor.href), win, client);
+    });
+  }
+
   win.document.doctype?.remove();
   win.document.documentElement.remove();
 
   if (protoDom.doctype) win.document.append(protoDom.doctype);
   win.document.append(protoDom.documentElement);
+}
+
+export async function createDOM(url: string, win: Win, client: BareClient) {
+  loadDOM(new URL(url), win, client);
 }
 
 async function simulateStyle(
