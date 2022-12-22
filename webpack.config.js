@@ -26,6 +26,7 @@ const config = {
     path: fileURLToPath(new URL("./dist/", import.meta.url)),
     filename: "spacord.js",
   },
+  devtool: isProd ? "source-map" : "eval",
   mode: process.env.NODE_ENV,
   devServer: {
     setupMiddlewares: (middlewares, devServer) => {
@@ -49,11 +50,18 @@ const config = {
   module: {
     rules: [
       {
+        test: /\.m?[tj]sx?$/,
+        enforce: "pre",
+        use: ["source-map-loader"],
+      },
+      {
         test: /\.tsx?$/,
         exclude: /node_modules/,
         use: {
           loader: "swc-loader",
           options: {
+            sourceMaps: true,
+            inlineSourcesContent: true,
             jsc: {
               parser: {
                 syntax: "typescript",
