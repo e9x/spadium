@@ -1,12 +1,22 @@
 import { createBareClient } from "@tomphttp/bare-client";
 import type BareClient from "@tomphttp/bare-client";
 import { h, Fragment } from "preact";
-import { useEffect, useRef, useState } from "preact/hooks";
+import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 import PortaProxy from "./PortaProxy";
 
 export default function Setup() {
   const bareServer = useRef<HTMLInputElement | null>(null);
   const websiteURL = useRef<HTMLInputElement | null>(null);
+  const defaultWebsiteURL = useMemo(
+    () => localStorage.getItem("website url") || "https://www.google.com/",
+    []
+  );
+  const defaultBareServerURL = useMemo(
+    () =>
+      localStorage.getItem("bare server url") ||
+      (process.env.NODE_ENV === "production" ? "" : process.env.BARE_SERVER),
+    []
+  );
   const [err, setErr] = useState<[at: string, err: string] | null>(null);
   const [bareServerURL, setBareServerURL] = useState<string | null>(null);
   const [bareClient, setBareClient] = useState<BareClient | null>(null);
@@ -17,13 +27,9 @@ export default function Setup() {
     if (bareServerURL === null) return;
 
     createBareClient(new URL(bareServerURL, global.location.toString()))
-      .then((client) => {
-        setBareClient(client);
-        localStorage.setItem("cached bare server", bareServerURL);
-      })
+      .then((client) => setBareClient(client))
       .catch((err) => {
         setErr(["Connecting to Bare server", String(err)]);
-        localStorage.removeItem("cached bare server");
       });
   }, [bareServerURL]);
 
@@ -48,6 +54,9 @@ export default function Setup() {
               new TypeError("Website URL input doesn't exist.").toString(),
             ]);
 
+          localStorage.setItem("bare server url", bareServer.current.value);
+          localStorage.setItem("website url", websiteURL.current.value);
+
           setBareServerURL(bareServer.current.value);
           setReq(new Request(websiteURL.current.value));
         }}
@@ -67,12 +76,7 @@ export default function Setup() {
               }
             }}
             type="text"
-            defaultValue={
-              localStorage.getItem("cached bare server") ||
-              (process.env.NODE_ENV === "production"
-                ? ""
-                : process.env.BARE_SERVER)
-            }
+            defaultValue={defaultBareServerURL}
           />
         </label>
         <hr />
@@ -91,7 +95,7 @@ export default function Setup() {
               }
             }}
             type="text"
-            defaultValue="https://www.google.com/"
+            defaultValue={defaultWebsiteURL}
           />
         </label>
         <hr />
