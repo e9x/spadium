@@ -157,9 +157,13 @@ export default async function loadDOM(
 
   for (const link of protoDom.querySelectorAll<HTMLLinkElement>(
     "link[rel='stylesheet']"
-  )) {
+  ))
     link.replaceWith(await simulateStyleLink(link, win, client));
-  }
+
+  for (const link of protoDom.querySelectorAll<HTMLLinkElement>(
+    "link[rel='preload']"
+  ))
+    link.remove();
 
   for (const noscript of protoDom.querySelectorAll("noscript")) {
     const fragment = new DocumentFragment();
