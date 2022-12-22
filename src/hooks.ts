@@ -42,6 +42,8 @@ async function rewriteStyle(
   }
 }
 
+const validProtocols: string[] = ["http:", "https:"];
+
 async function localizeResource(
   url: string | URL,
   dest: RequestDestination,
@@ -49,7 +51,9 @@ async function localizeResource(
   client: BareClient
 ) {
   const r = new URL(url);
-  if (r.protocol === "data:") return r.toString();
+  console.trace(r);
+  if (!validProtocols.includes(r.host) || !r.host || r.protocol === "data:")
+    return r.toString();
   const res = await request(new Request(r), dest, client);
   return win.URL.createObjectURL(await res.blob());
 }
