@@ -17,7 +17,7 @@ async function modifyCSS(
   const assets: [
     atruleName: string | void,
     node: CssNode,
-    url: string,
+    url: URL,
     blob?: string
   ][] = [];
 
@@ -27,7 +27,7 @@ async function modifyCSS(
         assets.push([
           this.atrule?.name,
           node,
-          new URL(node.value as unknown as string, location).toString(),
+          new URL(node.value as unknown as string, location),
         ]);
       } catch (err) {
         console.error(err);
@@ -42,7 +42,7 @@ async function modifyCSS(
 
     let generated = "";
 
-    const res = await request(new Request(asset[2]), "image", client);
+    if (asset[2].protocol === "data:") continue;
 
     if (asset[0] === "import") {
       /*replace = {
@@ -50,11 +50,14 @@ async function modifyCSS(
             value: <StringNode>routeCSS(resolved, url),
           };*/
       // TODO: fetch imported style
-    } else
+    } else {
+      const res = await request(new Request(asset[2]), "image", client);
+
       generated = generate({
         type: "Url",
         value: win.URL.createObjectURL(await res.blob()) as unknown as Raw,
       });
+    }
 
     script =
       script.slice(0, asset[1].loc!.start.offset - offset) +
