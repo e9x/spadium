@@ -79,6 +79,9 @@ export default async function loadDOM(
   win: Win,
   client: BareClient
 ) {
+  // Remove any blob URIs
+  win.location.reload();
+
   let res: BareResponseFetch;
 
   while (true) {
@@ -93,7 +96,7 @@ export default async function loadDOM(
   }
 
   const location = new URL(res.finalURL);
-  console.log(res.finalURL);
+
   const protoDom = new DOMParser().parseFromString(
     await res.text(),
     "text/html"
