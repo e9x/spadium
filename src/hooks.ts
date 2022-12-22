@@ -30,6 +30,27 @@ async function rewriteSrcset(
   return stringifySrcset(newSrcset);
 }
 
+async function rewriteStyle(
+  style: CSSStyleDeclaration,
+  location: URL,
+  win: Win,
+  client: BareClient
+) {
+  for (let i = 0; i < style.length; i++) {
+    const property = style[i];
+    style.setProperty(
+      property,
+      await modifyCSS(
+        style.getPropertyValue(property),
+        location,
+        "value",
+        win,
+        client
+      )
+    );
+  }
+}
+
 async function localizeResource(
   url: string | URL,
   dest: RequestDestination,
@@ -45,7 +66,7 @@ async function localizeResource(
 async function modifyCSS(
   script: string,
   location: URL,
-  context = "stylesheet",
+  context: string,
   // so we can create a blob inside the window
   win: Win,
   client: BareClient
@@ -190,6 +211,9 @@ export default async function loadDOM(
   for (const img of protoDom.querySelectorAll("img"))
     if (img.src)
       img.src = await localizeResource(img.src, "image", win, client);
+
+  for (const node of protoDom.querySelectorAll<HTMLElement>("*[style]"))
+    await rewriteStyle(node.style, location, win, client);
 
   for (const s of protoDom.querySelectorAll<
     HTMLImageElement | HTMLSourceElement
