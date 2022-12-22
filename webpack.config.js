@@ -45,6 +45,7 @@ const config = {
     },
   },
   resolve: {
+    fallback: { util: false },
     extensions: [".mjs", ".js", ".ts", ".tsx", ".json", ".jsx"],
   },
   module: {

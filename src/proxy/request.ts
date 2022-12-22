@@ -1,10 +1,13 @@
 import type BareClient from "@tomphttp/bare-client";
+import { CookieJar } from "tough-cookie";
 import type { Win } from "./win";
 import { sClient } from "./win";
 
 export const validProtocols: string[] = ["http:", "https:"];
 
 const redirectStatusCodes = [300, 301, 302, 303, 304, 305, 307, 308];
+
+const cookie = new CookieJar();
 
 export async function request(
   req: Request,
@@ -15,19 +18,23 @@ export async function request(
     const res = await _request(req, dest, win[sClient]);
     for (const name in res.rawHeaders) {
       if (name.toLowerCase() === "set-cookie") {
-        console.log("got set-cookie", res.rawHeaders[name]);
+        let cookies = res.rawHeaders[name];
+        if (!Array.isArray(cookies)) cookies = [cookies];
+        // for (const c of cookies) await cookie.setCookie(c, res.finalURL);
       }
     }
 
     if (redirectStatusCodes.includes(res.status)) {
       const location = new URL(res.headers.get("location") || "", req.url);
       req = new Request(location);
+      continue;
     }
+
     return res;
   }
 }
 
-export function _request(
+async function _request(
   req: Request,
   dest: RequestDestination,
   client: BareClient
@@ -37,14 +44,15 @@ export function _request(
   const headers = new Headers(req.headers);
   headers.set("user-agent", navigator.userAgent);
   headers.set("sec-fetch-dest", dest);
-  return client.fetch(req.url, {
+  headers.set("cookie", await cookie.getCookieString(req.url));
+  return await client.fetch(req.url, {
     headers,
     body: req.body,
     // forcing cache greatly improves load times
     cache: "force-cache",
     signal: req.signal,
     method: req.method,
-    redirect: req.redirect,
+    redirect: "manual",
   });
 }
 
