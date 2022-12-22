@@ -1,8 +1,8 @@
 import { h, Fragment } from "preact";
 import type BareClient from "@tomphttp/bare-client";
 import { useEffect, useState } from "preact/hooks";
-import type { Win } from "./hooks";
-import loadDOM from "./hooks";
+import type { Win } from "./proxy/win";
+import loadDOM from "./proxy/hooks";
 
 export default function PortaProxy({
   client,

@@ -1,25 +1,14 @@
 import type BareClient from "@tomphttp/bare-client";
 import type { SrcSetDefinition } from "srcset";
 import { parseSrcset, stringifySrcset } from "srcset";
-import type { CssNode, Raw } from "css-tree";
-import { generate, parse, walk } from "css-tree";
-
-const sClient = Symbol("spadium client");
-const location = Symbol("spadium location");
-const iframeSrc = Symbol("spadium iframe src");
-
-declare global {
-  interface HTMLIFrameElement {
-    [iframeSrc]: string;
-  }
-}
-
-interface WinProps {
-  [location]: URL;
-  [sClient]: BareClient;
-}
-
-export type Win = typeof globalThis & WinProps;
+import { localizeResource, request, validProtocols } from "./request";
+import {
+  rewriteCSSValue,
+  simulateStyle,
+  simulateStyleLink,
+} from "./rewriteCSS";
+import type { Win } from "./win";
+import { sClient, sIframeSrc, sLocation } from "./win";
 
 async function rewriteSrcset(srcset: string, win: Win) {
   const parsed = parseSrcset(srcset);
@@ -28,7 +17,7 @@ async function rewriteSrcset(srcset: string, win: Win) {
   for (const src of parsed)
     newSrcset.push({
       url: await localizeResource(
-        new URL(src.url, win[location]),
+        new URL(src.url, win[sLocation]),
         "image",
         win
       ),
@@ -44,88 +33,9 @@ async function rewriteStyle(style: CSSStyleDeclaration, win: Win) {
     const property = style[i];
     style.setProperty(
       property,
-      await modifyCSS(style.getPropertyValue(property), "value", win)
+      await rewriteCSSValue(style.getPropertyValue(property), win)
     );
   }
-}
-
-const validProtocols: string[] = ["http:", "https:"];
-
-async function localizeResource(
-  url: string | URL,
-  dest: RequestDestination,
-  win: Win
-) {
-  const r = new URL(url);
-  if (!validProtocols.includes(r.protocol) || !r.host || r.protocol === "data:")
-    return r.toString();
-  const res = await request(new Request(r), dest, win);
-  return win.URL.createObjectURL(await res.blob());
-}
-
-async function modifyCSS(
-  script: string,
-  context: string,
-  // so we can create a blob inside the window
-  win: Win
-) {
-  const tree = parse(script, { positions: true, context });
-  let offset = 0;
-
-  const assets: [
-    atruleName: string | void,
-    node: CssNode,
-    url: URL,
-    blob?: string
-  ][] = [];
-
-  walk(tree, function (node) {
-    if (node.type === "Url")
-      try {
-        assets.push([
-          this.atrule?.name,
-          node,
-          new URL(node.value as unknown as string, win[location]),
-        ]);
-      } catch (err) {
-        console.error(err);
-      }
-  });
-
-  for (const asset of assets) {
-    /*const raw = script.slice(
-      asset[1].loc!.start.offset - offset,
-      asset[1].loc!.end.offset - offset
-    );*/
-
-    let generated = "";
-
-    if (asset[0] === "import") {
-      /*replace = {
-            type: "Url",
-            value: <StringNode>routeCSS(resolved, url),
-          };*/
-      // TODO: fetch imported style
-    } else {
-      generated = generate({
-        type: "Url",
-        value: (await localizeResource(
-          asset[2],
-          "image",
-          win
-        )) as unknown as Raw,
-      });
-    }
-
-    script =
-      script.slice(0, asset[1].loc!.start.offset - offset) +
-      generated +
-      script.slice(asset[1].loc!.end.offset - offset);
-    offset +=
-      asset[1].loc!.end.offset - asset[1].loc!.start.offset - generated.length;
-  }
-
-  return script;
 }
 
 async function rewriteSVG(svg: SVGSVGElement, win: Win) {
@@ -134,12 +44,10 @@ async function rewriteSVG(svg: SVGSVGElement, win: Win) {
     if (href)
       image.setAttribute(
         "xlink:href",
-        await localizeResource(new URL(href, win[location]), "image", win)
+        await localizeResource(new URL(href, win[sLocation]), "image", win)
       );
   }
 }
-
-const redirectStatusCodes = [300, 301, 302, 303, 304, 305, 307, 308];
 
 export default async function loadDOM(
   req: Request,
@@ -150,7 +58,7 @@ export default async function loadDOM(
 
   const res = await request(req, "document", win);
 
-  win[location] = new URL(res.finalURL);
+  win[sLocation] = new URL(res.finalURL);
 
   const protoDom = new DOMParser().parseFromString(
     await res.text(),
@@ -158,7 +66,7 @@ export default async function loadDOM(
   );
 
   const base = document.createElement("base");
-  base.href = win[location].toString();
+  base.href = win[sLocation].toString();
   protoDom.head.append(base);
   win.document.head.append(base.cloneNode());
 
@@ -185,7 +93,7 @@ export default async function loadDOM(
   for (const script of protoDom.querySelectorAll("script")) script.remove();
 
   for (const iframe of protoDom.querySelectorAll("iframe")) {
-    iframe[iframeSrc] = iframe.src;
+    iframe[sIframeSrc] = iframe.src;
     iframe.src = "";
     iframe.removeAttribute("sandbox");
     iframe.removeAttribute("allow");
@@ -271,50 +179,4 @@ export default async function loadDOM(
 
   if (protoDom.doctype) win.document.append(protoDom.doctype);
   win.document.append(protoDom.documentElement);
-}
-
-async function simulateStyle(source: string, win: Win) {
-  const style = document.createElement("style");
-  style.textContent = await modifyCSS(source, "stylesheet", win);
-  return style;
-}
-
-async function simulateStyleLink(node: HTMLLinkElement, win: Win) {
-  const res = await request(new Request(node.href), "style", win);
-  if (!res.ok) throw new Error("Res was not ok");
-  return simulateStyle(await res.text(), win);
-}
-
-async function request(req: Request, dest: RequestDestination, win: Win) {
-  while (true) {
-    const res = await _request(req, dest, win[sClient]);
-    for (const name in res.rawHeaders) {
-      if (name.toLowerCase() === "set-cookie") {
-        console.log("got set-cookie", res.rawHeaders[name]);
-      }
-    }
-
-    if (redirectStatusCodes.includes(res.status)) {
-      const location = new URL(res.headers.get("location") || "", req.url);
-      req = new Request(location);
-    }
-    return res;
-  }
-}
-
-function _request(req: Request, dest: RequestDestination, client: BareClient) {
-  if (!client) throw new Error("OK");
-  // todo: produce our own user-agent?
-  const headers = new Headers(req.headers);
-  headers.set("user-agent", navigator.userAgent);
-  headers.set("sec-fetch-dest", dest);
-  return client.fetch(req.url, {
-    headers,
-    body: req.body,
-    // forcing cache greatly improves load times
-    cache: "force-cache",
-    signal: req.signal,
-    method: req.method,
-    redirect: req.redirect,
-  });
 }
