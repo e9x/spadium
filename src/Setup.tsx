@@ -1,7 +1,7 @@
 import { createBareClient } from "@tomphttp/bare-client";
 import type BareClient from "@tomphttp/bare-client";
 import { h, Fragment } from "preact";
-import { useEffect, useRef, useState } from "preact/hooks";
+import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 import PortaProxy from "./PortaProxy";
 
 export default function Setup() {
@@ -11,6 +11,8 @@ export default function Setup() {
   );
   const [bareClient, setBareClient] = useState<BareClient | null>(null);
   const [err, setErr] = useState<string | null>(null);
+
+  const req = useMemo(() => new Request("https://www.google.com/"), []);
 
   useEffect(() => {
     if (bareServerURL === null) return;
@@ -25,7 +27,7 @@ export default function Setup() {
   }, [bareServerURL]);
 
   return bareClient ? (
-    <PortaProxy client={bareClient} />
+    <PortaProxy req={req} client={bareClient} />
   ) : (
     <>
       <h1>Spacord</h1>

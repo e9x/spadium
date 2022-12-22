@@ -4,13 +4,19 @@ import { useEffect, useState } from "preact/hooks";
 import type { Win } from "./hooks";
 import loadDOM from "./hooks";
 
-export default function PortaProxy({ client }: { client: BareClient }) {
+export default function PortaProxy({
+  client,
+  req,
+}: {
+  client: BareClient;
+  req: Request;
+}) {
   const [win, setWin] = useState<Win | null>(null);
 
   useEffect(() => {
     if (!win) return;
-    loadDOM("https://www.google.com/", win, client);
-  }, [client, win]);
+    loadDOM(req, win, client);
+  }, [client, req, win]);
 
   return (
     <>

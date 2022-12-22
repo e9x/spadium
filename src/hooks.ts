@@ -1,5 +1,5 @@
 import type BareClient from "@tomphttp/bare-client";
-import type { BareResponseFetch } from "@tomphttp/bare-client";
+import type { BareFetchInit, BareResponseFetch } from "@tomphttp/bare-client";
 import type { CssNode, Raw } from "css-tree";
 import { generate, parse, walk } from "css-tree";
 
@@ -82,7 +82,7 @@ export default async function loadDOM(
   let res: BareResponseFetch;
 
   while (true) {
-    res = await request(req, "document", client);
+    res = await request(req, "document", client, { redirect: "manual" });
     if (redirectStatusCodes.includes(res.status)) {
       const location = new URL(res.headers.get("location") || "", req.url);
       req = new Request(location);
@@ -93,6 +93,7 @@ export default async function loadDOM(
   }
 
   const location = new URL(res.finalURL);
+  console.log(res.finalURL);
   const protoDom = new DOMParser().parseFromString(
     await res.text(),
     "text/html"
@@ -191,7 +192,12 @@ async function simulateStyleLink(
   return simulateStyle(await res.text(), location, win, client);
 }
 
-function request(req: Request, dest: RequestDestination, client: BareClient) {
+function request(
+  req: Request,
+  dest: RequestDestination,
+  client: BareClient,
+  override?: BareFetchInit
+) {
   // todo: produce our own user-agent?
   const headers = new Headers(req.headers);
   headers.set("user-agent", navigator.userAgent);
@@ -204,5 +210,6 @@ function request(req: Request, dest: RequestDestination, client: BareClient) {
     signal: req.signal,
     method: req.method,
     redirect: req.redirect,
+    ...override,
   });
 }
