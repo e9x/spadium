@@ -22,11 +22,10 @@ async function rewriteSrcset(
         win,
         client
       ),
-      density: src.density,
-      width: src.density,
+      ...(src.density ? { density: src.density } : {}),
+      ...(src.width ? { width: src.width } : {}),
     });
 
-  console.log(stringifySrcset(newSrcset));
   return stringifySrcset(newSrcset);
 }
 
@@ -188,7 +187,9 @@ export default async function loadDOM(
 
   for (const script of protoDom.querySelectorAll("script")) script.remove();
 
-  for (const anchor of protoDom.querySelectorAll("a"))
+  for (const anchor of protoDom.querySelectorAll("a")) {
+    if (anchor.ping) anchor.ping = "";
+
     anchor.addEventListener("click", (event) => {
       event.preventDefault();
       const newWin = win.open(
@@ -207,6 +208,7 @@ export default async function loadDOM(
 
       loadDOM(new Request(anchor.href), newWin as unknown as Win, client);
     });
+  }
 
   for (const img of protoDom.querySelectorAll("img"))
     if (img.src)
