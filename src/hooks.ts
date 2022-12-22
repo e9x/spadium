@@ -143,7 +143,14 @@ export default async function loadDOM(
   for (const anchor of protoDom.querySelectorAll("a"))
     anchor.addEventListener("click", (event) => {
       event.preventDefault();
-      const newWin = win.open(undefined, anchor.target || "_self");
+      const newWin = win.open(
+        undefined,
+        event.shiftKey
+          ? "new"
+          : event.ctrlKey || event.button === 1
+          ? "_blank"
+          : anchor.target || "_self"
+      );
 
       if (!newWin) {
         console.error("error opening window", anchor.target, "...");
