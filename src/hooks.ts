@@ -1,7 +1,34 @@
 import type BareClient from "@tomphttp/bare-client";
+import type { SrcSetDefinition } from "srcset";
+import { parseSrcset, stringifySrcset } from "srcset";
 import type { BareFetchInit, BareResponseFetch } from "@tomphttp/bare-client";
 import type { CssNode, Raw } from "css-tree";
 import { generate, parse, walk } from "css-tree";
+
+async function rewriteSrcset(
+  srcset: string,
+  location: URL,
+  win: Win,
+  client: BareClient
+) {
+  const parsed = parseSrcset(srcset);
+  const newSrcset: SrcSetDefinition[] = [];
+
+  for (const src of parsed)
+    newSrcset.push({
+      url: await localizeResource(
+        new URL(src.url, location),
+        "image",
+        win,
+        client
+      ),
+      density: src.density,
+      width: src.density,
+    });
+
+  console.log(stringifySrcset(newSrcset));
+  return stringifySrcset(newSrcset);
+}
 
 async function localizeResource(
   url: string | URL,
@@ -163,6 +190,12 @@ export default async function loadDOM(
   for (const img of protoDom.querySelectorAll("img"))
     if (img.src)
       img.src = await localizeResource(img.src, "image", win, client);
+
+  for (const s of protoDom.querySelectorAll<
+    HTMLImageElement | HTMLSourceElement
+  >("img,source"))
+    if (s.srcset)
+      s.srcset = await rewriteSrcset(s.srcset, location, win, client);
 
   for (const video of protoDom.querySelectorAll("video"))
     if (video.poster)
