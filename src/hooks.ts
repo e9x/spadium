@@ -3,6 +3,18 @@ import type { BareFetchInit, BareResponseFetch } from "@tomphttp/bare-client";
 import type { CssNode, Raw } from "css-tree";
 import { generate, parse, walk } from "css-tree";
 
+async function localizeResource(
+  url: string | URL,
+  dest: RequestDestination,
+  win: Win,
+  client: BareClient
+) {
+  const r = new URL(url);
+  if (r.protocol === "data:") return r.toString();
+  const res = await request(new Request(r), dest, client);
+  return win.URL.createObjectURL(await res.blob());
+}
+
 async function modifyCSS(
   script: string,
   location: URL,
@@ -42,8 +54,6 @@ async function modifyCSS(
 
     let generated = "";
 
-    if (asset[2].protocol === "data:") continue;
-
     if (asset[0] === "import") {
       /*replace = {
             type: "Url",
@@ -51,11 +61,14 @@ async function modifyCSS(
           };*/
       // TODO: fetch imported style
     } else {
-      const res = await request(new Request(asset[2]), "image", client);
-
       generated = generate({
         type: "Url",
-        value: win.URL.createObjectURL(await res.blob()) as unknown as Raw,
+        value: (await localizeResource(
+          asset[2],
+          "image",
+          win,
+          client
+        )) as unknown as Raw,
       });
     }
 
@@ -132,6 +145,13 @@ export default async function loadDOM(
       event.preventDefault();
       loadDOM(new Request(anchor.href), win, client);
     });
+
+  for (const img of protoDom.querySelectorAll("img"))
+    img.src = await localizeResource(img.src, "image", win, client);
+
+  for (const video of protoDom.querySelectorAll("video"))
+    if (video.poster)
+      video.poster = await localizeResource(video.poster, "image", win, client);
 
   for (const form of protoDom.querySelectorAll("form"))
     form.addEventListener("submit", (event) => {
