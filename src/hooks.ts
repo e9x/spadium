@@ -143,11 +143,19 @@ export default async function loadDOM(
   for (const anchor of protoDom.querySelectorAll("a"))
     anchor.addEventListener("click", (event) => {
       event.preventDefault();
-      loadDOM(new Request(anchor.href), win, client);
+      const newWin = win.open(undefined, anchor.target || "_self");
+
+      if (!newWin) {
+        console.error("error opening window", anchor.target, "...");
+        return;
+      }
+
+      loadDOM(new Request(anchor.href), newWin as unknown as Win, client);
     });
 
   for (const img of protoDom.querySelectorAll("img"))
-    img.src = await localizeResource(img.src, "image", win, client);
+    if (img.src)
+      img.src = await localizeResource(img.src, "image", win, client);
 
   for (const video of protoDom.querySelectorAll("video"))
     if (video.poster)
