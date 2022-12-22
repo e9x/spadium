@@ -5,19 +5,18 @@ import type { BareFetchInit, BareResponseFetch } from "@tomphttp/bare-client";
 import type { CssNode, Raw } from "css-tree";
 import { generate, parse, walk } from "css-tree";
 
-async function rewriteSrcset(
-  srcset: string,
-  location: URL,
-  win: Win,
-  client: BareClient
-) {
+const location = Symbol("spadium location");
+
+export type Win = typeof globalThis & { [location]: URL };
+
+async function rewriteSrcset(srcset: string, win: Win, client: BareClient) {
   const parsed = parseSrcset(srcset);
   const newSrcset: SrcSetDefinition[] = [];
 
   for (const src of parsed)
     newSrcset.push({
       url: await localizeResource(
-        new URL(src.url, location),
+        new URL(src.url, win[location]),
         "image",
         win,
         client
@@ -31,7 +30,6 @@ async function rewriteSrcset(
 
 async function rewriteStyle(
   style: CSSStyleDeclaration,
-  location: URL,
   win: Win,
   client: BareClient
 ) {
@@ -39,13 +37,7 @@ async function rewriteStyle(
     const property = style[i];
     style.setProperty(
       property,
-      await modifyCSS(
-        style.getPropertyValue(property),
-        location,
-        "value",
-        win,
-        client
-      )
+      await modifyCSS(style.getPropertyValue(property), "value", win, client)
     );
   }
 }
@@ -64,7 +56,6 @@ async function localizeResource(
 
 async function modifyCSS(
   script: string,
-  location: URL,
   context: string,
   // so we can create a blob inside the window
   win: Win,
@@ -86,7 +77,7 @@ async function modifyCSS(
         assets.push([
           this.atrule?.name,
           node,
-          new URL(node.value as unknown as string, location),
+          new URL(node.value as unknown as string, win[location]),
         ]);
       } catch (err) {
         console.error(err);
@@ -130,8 +121,6 @@ async function modifyCSS(
   return script;
 }
 
-export type Win = typeof globalThis;
-
 const redirectStatusCodes = [300, 301, 302, 303, 304, 305, 307, 308];
 
 export default async function loadDOM(
@@ -155,7 +144,7 @@ export default async function loadDOM(
     break;
   }
 
-  const location = new URL(res.finalURL);
+  win[location] = new URL(res.finalURL);
 
   const protoDom = new DOMParser().parseFromString(
     await res.text(),
@@ -163,14 +152,14 @@ export default async function loadDOM(
   );
 
   const base = document.createElement("base");
-  base.href = location.toString();
+  base.href = win[location].toString();
   protoDom.head.append(base);
   win.document.head.append(base.cloneNode());
 
   for (const link of protoDom.querySelectorAll<HTMLLinkElement>(
     "link[rel='stylesheet']"
   )) {
-    link.replaceWith(await simulateStyleLink(link, location, win, client));
+    link.replaceWith(await simulateStyleLink(link, win, client));
   }
 
   for (const noscript of protoDom.querySelectorAll("noscript")) {
@@ -181,7 +170,7 @@ export default async function loadDOM(
 
   for (const style of protoDom.querySelectorAll("style")) {
     style.replaceWith(
-      await simulateStyle(style.textContent || "", location, win, client)
+      await simulateStyle(style.textContent || "", win, client)
     );
   }
 
@@ -215,13 +204,12 @@ export default async function loadDOM(
       img.src = await localizeResource(img.src, "image", win, client);
 
   for (const node of protoDom.querySelectorAll<HTMLElement>("*[style]"))
-    await rewriteStyle(node.style, location, win, client);
+    await rewriteStyle(node.style, win, client);
 
   for (const s of protoDom.querySelectorAll<
     HTMLImageElement | HTMLSourceElement
   >("img,source"))
-    if (s.srcset)
-      s.srcset = await rewriteSrcset(s.srcset, location, win, client);
+    if (s.srcset) s.srcset = await rewriteSrcset(s.srcset, win, client);
 
   for (const video of protoDom.querySelectorAll("video"))
     if (video.poster)
@@ -261,32 +249,20 @@ export default async function loadDOM(
   win.document.append(protoDom.documentElement);
 }
 
-async function simulateStyle(
-  source: string,
-  location: URL,
-  win: Win,
-  client: BareClient
-) {
+async function simulateStyle(source: string, win: Win, client: BareClient) {
   const style = document.createElement("style");
-  style.textContent = await modifyCSS(
-    source,
-    location,
-    "stylesheet",
-    win,
-    client
-  );
+  style.textContent = await modifyCSS(source, "stylesheet", win, client);
   return style;
 }
 
 async function simulateStyleLink(
   node: HTMLLinkElement,
-  location: URL,
   win: Win,
   client: BareClient
 ) {
   const res = await request(new Request(node.href), "style", client);
   if (!res.ok) throw new Error("Res was not ok");
-  return simulateStyle(await res.text(), location, win, client);
+  return simulateStyle(await res.text(), win, client);
 }
 
 function request(
