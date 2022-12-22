@@ -1,7 +1,7 @@
 {
-  "name": "spacord",
+  "name": "spadium",
   "version": "1.0.0",
-  "description": "Discord as a Bare-powered SPA",
+  "description": "Bare-powered SPA, No SW",
   "author": "",
   "license": "ISC",
   "private": true,
