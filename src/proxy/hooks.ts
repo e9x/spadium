@@ -1,6 +1,7 @@
 import type BareClient from "@tomphttp/bare-client";
 import type { SrcSetDefinition } from "srcset";
 import { parseSrcset, stringifySrcset } from "srcset";
+import parseRefreshHeader from "./parseRefresh";
 import { localizeResource, request, validProtocols } from "./request";
 import {
   rewriteCSSValue,
@@ -70,6 +71,25 @@ export default async function loadDOM(
   protoDom.head.append(base);
   win.document.head.append(base.cloneNode());
 
+  const refreshHeader =
+    protoDom.querySelector<HTMLMetaElement>("meta[http-equiv='refresh']")
+      ?.content || res.headers.get("refresh");
+
+  if (refreshHeader) {
+    const refresh = parseRefreshHeader(refreshHeader, win);
+
+    if (refresh)
+      win.setTimeout(() => {
+        const newWin = win.open("about:blank", "_self");
+        if (!newWin) return console.error("error opening window");
+        loadDOM(
+          new Request(refresh.url),
+          newWin as unknown as Win,
+          win[sClient]
+        );
+      }, refresh.duration);
+  }
+
   for (const link of protoDom.querySelectorAll<HTMLLinkElement>(
     "link[rel='stylesheet']"
   ))
@@ -118,13 +138,8 @@ export default async function loadDOM(
       if (!validProtocols.includes(protocol))
         return win.open(anchor.href, winTarget);
 
-      const newWin = win.open(undefined, winTarget);
-
-      if (!newWin) {
-        console.error("error opening window", anchor.target, "...");
-        return;
-      }
-
+      const newWin = win.open("about:blank", winTarget);
+      if (!newWin) return console.error("error opening window", anchor.target);
       loadDOM(new Request(anchor.href), newWin as unknown as Win, win[sClient]);
     });
   }
