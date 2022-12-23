@@ -82,11 +82,7 @@ export default async function loadDOM(
       win.setTimeout(() => {
         const newWin = win.open("about:blank", "_self");
         if (!newWin) return console.error("error opening window");
-        loadDOM(
-          new Request(refresh.url),
-          newWin as unknown as Win,
-          win[sClient]
-        );
+        loadDOM(new Request(refresh.url), newWin as unknown as Win, client);
       }, refresh.duration);
   }
 
@@ -143,7 +139,7 @@ export default async function loadDOM(
 
       const newWin = win.open("about:blank", winTarget);
       if (!newWin) return console.error("error opening window", anchor.target);
-      loadDOM(new Request(anchor.href), newWin as unknown as Win, win[sClient]);
+      loadDOM(new Request(anchor.href), newWin as unknown as Win, client);
     });
   }
 
