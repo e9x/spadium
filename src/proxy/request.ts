@@ -20,7 +20,7 @@ export async function request(
       if (name.toLowerCase() === "set-cookie") {
         let cookies = res.rawHeaders[name];
         if (!Array.isArray(cookies)) cookies = [cookies];
-        // for (const c of cookies) await cookie.setCookie(c, res.finalURL);
+        for (const c of cookies) await cookie.setCookie(c, res.finalURL);
       }
     }
 
@@ -44,7 +44,9 @@ async function _request(
   const headers = new Headers(req.headers);
   headers.set("user-agent", navigator.userAgent);
   headers.set("sec-fetch-dest", dest);
-  headers.set("cookie", await cookie.getCookieString(req.url));
+  const cookies = await cookie.getCookieString(req.url);
+  console.log(cookies);
+  if (cookies) headers.set("cookie", cookies);
   return await client.fetch(req.url, {
     headers,
     body: req.body,
