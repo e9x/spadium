@@ -90,6 +90,9 @@ export default async function loadDOM(
       }, refresh.duration);
   }
 
+  for (const meta of protoDom.querySelectorAll("meta"))
+    if (!["encoding", "content-type"].includes(meta.httpEquiv)) meta.remove();
+
   for (const link of protoDom.querySelectorAll<HTMLLinkElement>(
     "link[rel='stylesheet']"
   ))
