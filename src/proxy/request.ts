@@ -1,5 +1,6 @@
 import type BareClient from "@tomphttp/bare-client";
 import { CookieJar } from "tough-cookie";
+import WebStorageCookieStore from "./WebStorageCookieStore";
 import type { Win } from "./win";
 import { sClient } from "./win";
 
@@ -7,7 +8,7 @@ export const validProtocols: string[] = ["http:", "https:"];
 
 const redirectStatusCodes = [300, 301, 302, 303, 304, 305, 307, 308];
 
-const cookie = new CookieJar();
+const cookie = new CookieJar(new WebStorageCookieStore());
 
 export async function request(
   req: Request,
@@ -45,7 +46,6 @@ async function _request(
   headers.set("user-agent", navigator.userAgent);
   headers.set("sec-fetch-dest", dest);
   const cookies = await cookie.getCookieString(req.url);
-  console.log(cookies);
   if (cookies) headers.set("cookie", cookies);
   return await client.fetch(req.url, {
     headers,
