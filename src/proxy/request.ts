@@ -68,7 +68,7 @@ export async function localizeResource(
   if (!validProtocols.includes(r.protocol) || !r.host || r.protocol === "data:")
     return r.toString();
   const res = await request(new Request(r), dest, win);
-  const blobUrl = win.URL.createObjectURL(await res.blob());
+  const blobUrl = URL.createObjectURL(await res.blob());
   win[sBlobUrls].push(blobUrl);
   return blobUrl;
 }

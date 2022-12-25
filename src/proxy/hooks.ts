@@ -45,7 +45,7 @@ export async function deleteWindow(win: Win, deleteHistory = true) {
       if (val.win === win) contentHistory.delete(key);
   if (sAbort in win) win[sAbort].abort();
   if (sBlobUrls in win)
-    for (const url of win[sBlobUrls]) win.URL.revokeObjectURL(url);
+    for (const url of win[sBlobUrls]) URL.revokeObjectURL(url);
   if (sTimeouts in win)
     for (const timeout of win[sTimeouts]) clearTimeout(timeout);
   for (const iframe of win.document.querySelectorAll("iframe"))
@@ -152,7 +152,7 @@ async function loadDOM(req: Request, win: Win, client: BareClient) {
 
     if (refresh)
       win[sTimeouts].push(
-        win.setTimeout(
+        setTimeout(
           () => openWindow(new Request(refresh.url), "_self", win, client),
           refresh.duration
         )
