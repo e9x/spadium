@@ -185,10 +185,24 @@ export default async function loadDOM(
       const { src } = img;
       img.src = "";
       // asynchronously load images
-      localizeResource(src, "image", win).then((url) => {
-        console.log(url);
-        img.src = url;
-      });
+      localizeResource(src, "image", win).then((url) => (img.src = url));
+    }
+
+  for (const source of protoDom.querySelectorAll("source"))
+    if (source.src) {
+      const { src } = source;
+      console.log(src);
+      source.src = "";
+      // asynchronously load images
+      localizeResource(src, "video", win).then((url) => (source.src = url));
+    }
+
+  for (const track of protoDom.querySelectorAll("track"))
+    if (track.src) {
+      const { src } = track;
+      track.src = "";
+      // asynchronously load images
+      localizeResource(src, "video", win).then((url) => (track.src = url));
     }
 
   for (const node of protoDom.querySelectorAll<HTMLElement>("*[style]"))
