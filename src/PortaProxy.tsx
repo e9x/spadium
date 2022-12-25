@@ -2,7 +2,7 @@ import { h, Fragment } from "preact";
 import type BareClient from "@tomphttp/bare-client";
 import { useEffect, useState } from "preact/hooks";
 import type { Win } from "./proxy/win";
-import loadDOM from "./proxy/hooks";
+import openWindow from "./proxy/hooks";
 
 export default function PortaProxy({
   client,
@@ -15,7 +15,7 @@ export default function PortaProxy({
 
   useEffect(() => {
     if (!win) return;
-    loadDOM(req, win, client);
+    openWindow(req, "_self", win, client, "replace");
   }, [client, req, win]);
 
   return (

@@ -13,6 +13,12 @@ declare global {
   }
 }
 
+export interface ContentHistory {
+  req: Request;
+  win: Win;
+  client: BareClient;
+}
+
 interface WinProps {
   [sAbort]: AbortController;
   [sLocation]: URL;

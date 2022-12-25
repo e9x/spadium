@@ -8,7 +8,7 @@ import {
   simulateStyle,
   simulateStyleLink,
 } from "./rewriteCSS";
-import type { Win } from "./win";
+import type { ContentHistory, Win } from "./win";
 import {
   sTimeouts,
   sBlobUrls,
@@ -18,20 +18,71 @@ import {
   sLocation,
 } from "./win";
 
-async function openWindow(
+// history is saved on context basis
+const historyId = Math.random().toString(36);
+
+const contentHistory = new Map<string, ContentHistory>();
+
+function getContentHistoryId() {
+  for (let i = 0; ; i++) {
+    const id = `PortaProxy_${historyId}_${i}`;
+    if (!contentHistory.has(id)) return id;
+  }
+}
+
+window.addEventListener("popstate", (event) => {
+  const data = contentHistory.get(event.state);
+  console.log(event.state, history.state);
+  if (data) {
+    openWindow(data.req, "_self", data.win, data.client, false);
+  }
+});
+
+/**
+ * Cleanup history for window
+ * Maybe called when an iframe is deleted during a redirect in the parent window
+ * Or the React component is unmounted
+ */
+export async function deleteWindow(win: Win, deleteHistory = true) {
+  if (deleteHistory)
+    for (const [key, val] of contentHistory)
+      if (val.win === win) contentHistory.delete(key);
+  if (sAbort in win) win[sAbort].abort();
+  if (sBlobUrls in win)
+    for (const url of win[sBlobUrls]) win.URL.revokeObjectURL(url);
+  if (sTimeouts in win)
+    for (const timeout of win[sTimeouts]) clearTimeout(timeout);
+  for (const iframe of win.document.querySelectorAll("iframe"))
+    if (iframe.contentWindow)
+      deleteWindow(iframe.contentWindow as unknown as Win);
+}
+
+export default async function openWindow(
   req: Request,
   target: string,
   win: Win,
-  client: BareClient
+  client: BareClient,
+  // push = clicked link
+  // replace = created main frame
+  // false = going back in history
+  setHistory: "push" | "replace" | false = "push"
 ) {
   const n = win.open(undefined, target) as Win | null;
   if (!n) return console.error("failure");
-  if (sAbort in n) n[sAbort].abort();
-  if (sBlobUrls in n)
-    for (const url of n[sBlobUrls]) n.URL.revokeObjectURL(url);
-  if (sTimeouts in n) for (const timeout of n[sTimeouts]) clearTimeout(timeout);
+  deleteWindow(n, false);
   // n.location.assign("about:blank");
   setTimeout(() => {
+    if (history) {
+      const id = getContentHistoryId();
+      contentHistory.set(id, {
+        client,
+        req,
+        win: n,
+      });
+      if (setHistory === "push") history.pushState(id, "", undefined);
+      else if (setHistory === "replace")
+        history.replaceState(id, "", undefined);
+    }
     loadDOM(req, n as unknown as Win, client);
   }, 10);
 }
@@ -76,11 +127,7 @@ function rewriteSVG(svg: SVGSVGElement, win: Win) {
   }
 }
 
-export default async function loadDOM(
-  req: Request,
-  win: Win,
-  client: BareClient
-) {
+async function loadDOM(req: Request, win: Win, client: BareClient) {
   if (!client) throw new TypeError("bad client");
   win[sAbort] = new AbortController();
   win[sClient] = client;
