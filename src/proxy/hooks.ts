@@ -251,7 +251,7 @@ export default async function loadDOM(
         req = new Request(url);
       }
 
-      loadDOM(req, win, win[sClient]);
+      openWindow(req, "_self", win, client);
     });
 
   win.document.doctype?.remove();
