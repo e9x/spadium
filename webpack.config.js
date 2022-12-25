@@ -4,6 +4,7 @@ import createBareServer from "@tomphttp/bare-server-node";
 import webpack from "webpack";
 import { fileURLToPath } from "url";
 import ForkTsCheckerWebpackPlugin from "fork-ts-checker-webpack-plugin";
+import ESLintWebpackPlugin from "eslint-webpack-plugin";
 
 /**
  * @typedef {webpack.Configuration & {devServer: import('webpack-dev-server').Configuration}} CompleteConfig
@@ -87,6 +88,7 @@ const config = {
     // for production builds & distribution
     isProd && new HtmlInlineScriptPlugin(),
     new webpack.EnvironmentPlugin("NODE_ENV", "BARE_SERVER"),
+    new ESLintWebpackPlugin(),
   ].filter(Boolean),
 };
 

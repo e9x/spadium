@@ -8,7 +8,8 @@ import {
   simulateStyle,
   simulateStyleLink,
 } from "./rewriteCSS";
-import { sAbort, Win } from "./win";
+import type { Win } from "./win";
+import { sAbort } from "./win";
 import { sClient, sIframeSrc, sLocation } from "./win";
 
 async function rewriteSrcset(srcset: string, win: Win) {
