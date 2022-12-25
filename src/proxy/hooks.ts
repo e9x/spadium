@@ -3,11 +3,7 @@ import type { SrcSetDefinition } from "srcset";
 import { parseSrcset, stringifySrcset } from "srcset";
 import parseRefreshHeader from "./parseRefresh";
 import { localizeResource, request, validProtocols } from "./request";
-import {
-  rewriteCSSValue,
-  simulateStyle,
-  simulateStyleLink,
-} from "./rewriteCSS";
+import { rewriteStyle, simulateStyle, simulateStyleLink } from "./rewriteCSS";
 import type { ContentHistory, Win } from "./win";
 import {
   sTimeouts,
@@ -105,16 +101,6 @@ async function rewriteSrcset(srcset: string, win: Win) {
   return stringifySrcset(newSrcset);
 }
 
-async function rewriteStyle(style: CSSStyleDeclaration, win: Win) {
-  for (let i = 0; i < style.length; i++) {
-    const property = style[i];
-    style.setProperty(
-      property,
-      await rewriteCSSValue(style.getPropertyValue(property), win)
-    );
-  }
-}
-
 function rewriteSVG(svg: SVGSVGElement, win: Win) {
   for (const image of svg.querySelectorAll("image")) {
     const href = image.getAttribute("xlink:href");
@@ -176,6 +162,7 @@ async function loadDOM(req: Request, win: Win, client: BareClient) {
   for (const meta of protoDom.querySelectorAll("meta"))
     if (!["encoding", "content-type"].includes(meta.httpEquiv)) meta.remove();
 
+  const styleAttributeIterators: AsyncGenerator<string, string, unknown>[] = [];
   const styleIterators: AsyncGenerator<string, string, unknown>[] = [];
 
   for (const node of protoDom.querySelectorAll<
@@ -186,7 +173,10 @@ async function loadDOM(req: Request, win: Win, client: BareClient) {
         ? await simulateStyleLink(node, win)
         : await simulateStyle(node.textContent || "", win);
 
-    replacement.id = (styleIterators.push(it) - 1).toString();
+    replacement.setAttribute(
+      "data-porta-proxy-style-id",
+      (styleIterators.push(it) - 1).toString()
+    );
 
     node.replaceWith(replacement);
   }
@@ -257,8 +247,17 @@ async function loadDOM(req: Request, win: Win, client: BareClient) {
       localizeResource(src, "video", win).then((url) => (track.src = url));
     }
 
-  for (const node of protoDom.querySelectorAll<HTMLElement>("*[style]"))
-    await rewriteStyle(node.style, win);
+  for (const node of protoDom.querySelectorAll<HTMLElement>("*[style]")) {
+    const style = node.getAttribute("style");
+    if (style) {
+      const [value, it] = await rewriteStyle(style, win);
+      node.setAttribute("style", value);
+      node.setAttribute(
+        "data-porta-proxy-style-id",
+        (styleAttributeIterators.push(it) - 1).toString()
+      );
+    }
+  }
 
   for (const s of protoDom.querySelectorAll<
     HTMLImageElement | HTMLSourceElement
@@ -315,11 +314,26 @@ async function loadDOM(req: Request, win: Win, client: BareClient) {
 
   for (let i = 0; i < styleIterators.length; i++) {
     const style = win.document.querySelector<HTMLStyleElement>(
-      `style[id="${i}"]`
+      `style[data-porta-proxy-style-id="${i}"]`
     );
     if (!style) throw new TypeError("couldn't find ref");
     iterateStyle(style, styleIterators[i]);
   }
+
+  for (let i = 0; i < styleAttributeIterators.length; i++) {
+    const element = win.document.querySelector(
+      `[data-porta-proxy-style-id="${i}"]`
+    );
+    if (!element) throw new TypeError("couldn't find ref");
+    iterateStyleAttribute(element, styleAttributeIterators[i]);
+  }
+}
+
+async function iterateStyleAttribute(
+  element: Element,
+  it: AsyncGenerator<string, string, unknown>
+) {
+  for await (const text of it) element.setAttribute("style", text);
 }
 
 async function iterateStyle(

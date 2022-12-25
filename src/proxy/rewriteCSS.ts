@@ -99,8 +99,12 @@ export async function simulateStyleLink(node: HTMLLinkElement, win: Win) {
   return await simulateStyle(await res.text(), win);
 }
 
-export async function rewriteCSSValue(value: string, win: Win) {
-  let style = "";
-  for await (const s of rewriteCSS(value, "value", win)) style = s;
-  return style;
+export async function rewriteStyle(
+  value: string,
+  win: Win
+): Promise<[string, AsyncGenerator<string, string, unknown>]> {
+  const it = rewriteCSS(value, "declarationList", win);
+  // first result is parsed style without external links
+  const newValue = (await it.next()).value!;
+  return [newValue, it];
 }
