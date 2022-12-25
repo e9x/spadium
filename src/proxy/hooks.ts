@@ -64,14 +64,15 @@ async function rewriteStyle(style: CSSStyleDeclaration, win: Win) {
   }
 }
 
-async function rewriteSVG(svg: SVGSVGElement, win: Win) {
+function rewriteSVG(svg: SVGSVGElement, win: Win) {
   for (const image of svg.querySelectorAll("image")) {
     const href = image.getAttribute("xlink:href");
-    if (href)
-      image.setAttribute(
-        "xlink:href",
-        await localizeResource(new URL(href, win[sLocation]), "image", win)
+    if (href) {
+      image.removeAttribute("xlink:href");
+      localizeResource(new URL(href, win[sLocation]), "image", win).then(
+        (url) => image.setAttribute("xlink:href", url)
       );
+    }
   }
 }
 
@@ -180,7 +181,15 @@ export default async function loadDOM(
   }
 
   for (const img of protoDom.querySelectorAll("img"))
-    if (img.src) img.src = await localizeResource(img.src, "image", win);
+    if (img.src) {
+      const { src } = img;
+      img.src = "";
+      // asynchronously load images
+      localizeResource(src, "image", win).then((url) => {
+        console.log(url);
+        img.src = url;
+      });
+    }
 
   for (const node of protoDom.querySelectorAll<HTMLElement>("*[style]"))
     await rewriteStyle(node.style, win);
@@ -188,14 +197,22 @@ export default async function loadDOM(
   for (const s of protoDom.querySelectorAll<
     HTMLImageElement | HTMLSourceElement
   >("img,source"))
-    if (s.srcset) s.srcset = await rewriteSrcset(s.srcset, win);
+    if (s.srcset) {
+      const { srcset } = s;
+      s.srcset = "";
+      rewriteSrcset(srcset, win).then((srcset) => (s.srcset = srcset));
+    }
 
   for (const video of protoDom.querySelectorAll("video"))
-    if (video.poster)
-      video.poster = await localizeResource(video.poster, "image", win);
+    if (video.poster) {
+      const { poster } = video;
+      localizeResource(poster, "image", win).then(
+        (url) => (video.poster = url)
+      );
+      video.poster = "";
+    }
 
-  for (const svg of protoDom.querySelectorAll("svg"))
-    await rewriteSVG(svg, win);
+  for (const svg of protoDom.querySelectorAll("svg")) rewriteSVG(svg, win);
 
   for (const form of protoDom.querySelectorAll("form"))
     form.addEventListener("submit", (event) => {
