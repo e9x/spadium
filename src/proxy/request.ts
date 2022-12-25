@@ -2,7 +2,7 @@ import type BareClient from "@tomphttp/bare-client";
 import { CookieJar } from "tough-cookie";
 import WebStorageCookieStore from "./WebStorageCookieStore";
 import type { Win } from "./win";
-import { sAbort, sClient } from "./win";
+import { sBlobUrls, sAbort, sClient } from "./win";
 
 export const validProtocols: string[] = ["http:", "https:"];
 
@@ -68,5 +68,7 @@ export async function localizeResource(
   if (!validProtocols.includes(r.protocol) || !r.host || r.protocol === "data:")
     return r.toString();
   const res = await request(new Request(r), dest, win);
-  return win.URL.createObjectURL(await res.blob());
+  const blobUrl = win.URL.createObjectURL(await res.blob());
+  win[sBlobUrls].push(blobUrl);
+  return blobUrl;
 }

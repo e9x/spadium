@@ -9,6 +9,7 @@ import {
   simulateStyleLink,
 } from "./rewriteCSS";
 import type { Win } from "./win";
+import { sBlobUrls } from "./win";
 import { sAbort } from "./win";
 import { sClient, sIframeSrc, sLocation } from "./win";
 
@@ -21,8 +22,9 @@ async function openWindow(
   const n = win.open(undefined, target) as Win | null;
   if (!n) return console.error("failure");
   if (sAbort in n) n[sAbort].abort();
-  n.location.assign("about:blank");
-
+  if (sBlobUrls in n)
+    for (const url of n[sBlobUrls]) n.URL.revokeObjectURL(url);
+  // n.location.assign("about:blank");
   setTimeout(() => {
     loadDOM(req, n as unknown as Win, client);
   }, 10);
@@ -75,6 +77,7 @@ export default async function loadDOM(
   if (!client) throw new TypeError("bad client");
   win[sAbort] = new AbortController();
   win[sClient] = client;
+  win[sBlobUrls] = [];
 
   const res = await request(req, "document", win);
   // win properties may have cleared in the time it took to do an async request...
