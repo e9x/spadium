@@ -9,9 +9,14 @@ import {
   simulateStyleLink,
 } from "./rewriteCSS";
 import type { Win } from "./win";
-import { sBlobUrls } from "./win";
-import { sAbort } from "./win";
-import { sClient, sIframeSrc, sLocation } from "./win";
+import {
+  sTimeouts,
+  sBlobUrls,
+  sAbort,
+  sClient,
+  sIframeSrc,
+  sLocation,
+} from "./win";
 
 async function openWindow(
   req: Request,
@@ -24,6 +29,7 @@ async function openWindow(
   if (sAbort in n) n[sAbort].abort();
   if (sBlobUrls in n)
     for (const url of n[sBlobUrls]) n.URL.revokeObjectURL(url);
+  if (sTimeouts in n) for (const timeout of n[sTimeouts]) clearTimeout(timeout);
   // n.location.assign("about:blank");
   setTimeout(() => {
     loadDOM(req, n as unknown as Win, client);
@@ -78,6 +84,7 @@ export default async function loadDOM(
   win[sAbort] = new AbortController();
   win[sClient] = client;
   win[sBlobUrls] = [];
+  win[sTimeouts] = [];
 
   const res = await request(req, "document", win);
   // win properties may have cleared in the time it took to do an async request...
@@ -104,9 +111,11 @@ export default async function loadDOM(
     const refresh = parseRefreshHeader(refreshHeader, win);
 
     if (refresh)
-      win.setTimeout(
-        () => openWindow(new Request(refresh.url), "_self", win, client),
-        refresh.duration
+      win[sTimeouts].push(
+        win.setTimeout(
+          () => openWindow(new Request(refresh.url), "_self", win, client),
+          refresh.duration
+        )
       );
   }
 
