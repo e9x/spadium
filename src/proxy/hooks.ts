@@ -12,6 +12,22 @@ import type { Win } from "./win";
 import { sAbort } from "./win";
 import { sClient, sIframeSrc, sLocation } from "./win";
 
+async function openWindow(
+  req: Request,
+  target: string,
+  win: Win,
+  client: BareClient
+) {
+  const n = win.open(undefined, target) as Win | null;
+  if (!n) return console.error("failure");
+  if (sAbort in n) n[sAbort].abort();
+  n.location.assign("about:blank");
+
+  setTimeout(() => {
+    loadDOM(req, n as unknown as Win, client);
+  }, 10);
+}
+
 async function rewriteSrcset(srcset: string, win: Win) {
   const parsed = parseSrcset(srcset);
   const newSrcset: SrcSetDefinition[] = [];
@@ -85,14 +101,10 @@ export default async function loadDOM(
     const refresh = parseRefreshHeader(refreshHeader, win);
 
     if (refresh)
-      win.setTimeout(() => {
-        win[sAbort].abort();
-        const newWin = win.open("about:blank", "_self");
-        if (!newWin) return console.error("error opening window");
-        setTimeout(() => {
-          loadDOM(new Request(refresh.url), newWin as unknown as Win, client);
-        }, 2000);
-      }, refresh.duration);
+      win.setTimeout(
+        () => openWindow(new Request(refresh.url), "_self", win, client),
+        refresh.duration
+      );
   }
 
   for (const meta of protoDom.querySelectorAll("meta"))
@@ -151,14 +163,7 @@ export default async function loadDOM(
       if (!validProtocols.includes(protocol))
         return win.open(anchor.href, winTarget);
 
-      const n = win.open(undefined, winTarget) as Win | null;
-      if (!n) return console.error("failure");
-      if (sAbort in n) n[sAbort].abort();
-      n.location.assign("about:blank");
-
-      setTimeout(() => {
-        loadDOM(new Request(anchor.href), n as unknown as Win, client);
-      }, 2000);
+      openWindow(new Request(anchor.href), winTarget, win, client);
     });
   }
 
