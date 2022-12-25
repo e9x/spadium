@@ -2,7 +2,7 @@ import type BareClient from "@tomphttp/bare-client";
 import { CookieJar } from "tough-cookie";
 import WebStorageCookieStore from "./WebStorageCookieStore";
 import type { Win } from "./win";
-import { sClient } from "./win";
+import { sAbort, sClient } from "./win";
 
 export const validProtocols: string[] = ["http:", "https:"];
 
@@ -16,7 +16,7 @@ export async function request(
   win: Win
 ) {
   while (true) {
-    const res = await _request(req, dest, win[sClient]);
+    const res = await _request(req, dest, win[sClient], win[sAbort].signal);
     for (const name in res.rawHeaders) {
       if (name.toLowerCase() === "set-cookie") {
         let cookies = res.rawHeaders[name];
@@ -38,7 +38,8 @@ export async function request(
 async function _request(
   req: Request,
   dest: RequestDestination,
-  client: BareClient
+  client: BareClient,
+  signal: AbortSignal
 ) {
   if (!client) throw new Error("OK");
   // todo: produce our own user-agent?
@@ -52,7 +53,7 @@ async function _request(
     body: req.body,
     // forcing cache greatly improves load times
     cache: "force-cache",
-    signal: req.signal,
+    signal: signal,
     method: req.method,
     redirect: "manual",
   });

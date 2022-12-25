@@ -8,7 +8,7 @@ import {
   simulateStyle,
   simulateStyleLink,
 } from "./rewriteCSS";
-import type { Win } from "./win";
+import { sAbort, Win } from "./win";
 import { sClient, sIframeSrc, sLocation } from "./win";
 
 async function rewriteSrcset(srcset: string, win: Win) {
@@ -55,9 +55,14 @@ export default async function loadDOM(
   win: Win,
   client: BareClient
 ) {
+  if (!client) throw new TypeError("bad client");
+  win[sAbort] = new AbortController();
   win[sClient] = client;
 
   const res = await request(req, "document", win);
+  // win properties may have cleared in the time it took to do an async request...
+  // set them again
+  // win[sClient] = client;
 
   win[sLocation] = new URL(res.finalURL);
 
@@ -80,9 +85,12 @@ export default async function loadDOM(
 
     if (refresh)
       win.setTimeout(() => {
+        win[sAbort].abort();
         const newWin = win.open("about:blank", "_self");
         if (!newWin) return console.error("error opening window");
-        loadDOM(new Request(refresh.url), newWin as unknown as Win, client);
+        setTimeout(() => {
+          loadDOM(new Request(refresh.url), newWin as unknown as Win, client);
+        }, 2000);
       }, refresh.duration);
   }
 
@@ -121,25 +129,35 @@ export default async function loadDOM(
   for (const anchor of protoDom.querySelectorAll("a")) {
     if (anchor.ping) anchor.ping = "";
 
-    anchor.addEventListener("click", (event) => {
+    anchor.addEventListener("click", async (event) => {
       event.preventDefault();
 
       const protocol = new URL(anchor.href).protocol;
 
       if (protocol === "javascript:") return;
 
-      const winTarget = event.shiftKey
+      let winTarget = event.shiftKey
         ? "new"
         : event.ctrlKey || event.button === 1
         ? "_blank"
         : anchor.target || "_self";
+      if (
+        (winTarget === "_top" && win.top === window) ||
+        (winTarget === "_parent" && win.parent === window)
+      )
+        winTarget = "_self";
 
       if (!validProtocols.includes(protocol))
         return win.open(anchor.href, winTarget);
 
-      const newWin = win.open("about:blank", winTarget);
-      if (!newWin) return console.error("error opening window", anchor.target);
-      loadDOM(new Request(anchor.href), newWin as unknown as Win, client);
+      const n = win.open(undefined, winTarget) as Win | null;
+      if (!n) return console.error("failure");
+      if (sAbort in n) n[sAbort].abort();
+      n.location.assign("about:blank");
+
+      setTimeout(() => {
+        loadDOM(new Request(anchor.href), n as unknown as Win, client);
+      }, 2000);
     });
   }
 

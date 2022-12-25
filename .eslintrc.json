@@ -31,6 +31,7 @@
     "no-duplicate-imports": "off",
     "prefer-const": "error",
     "no-var": "error",
+    "no-spaced-func": "off",
     "@typescript-eslint/consistent-type-imports": "error",
     "@typescript-eslint/no-unused-vars": "error",
     "@typescript-eslint/no-non-null-assertion": "off",
