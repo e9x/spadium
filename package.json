@@ -1,8 +1,11 @@
 {
   "name": "spadium",
   "version": "1.0.0",
-  "description": "Bare-powered SPA, No SW",
-  "author": "",
+  "description": "Spadium is a JavaScript browser library that creates an IFrame and manually fetches every asset for a given website, allowing it to be rendered locally without any external requests.",
+  "author": {
+    "name": "David Reed",
+    "url": "https://github.com/e9x"
+  },
   "license": "ISC",
   "private": true,
   "type": "module",
