@@ -198,29 +198,36 @@ async function loadDOM(req: Request, win: Win, client: BareClient) {
   for (const anchor of protoDom.querySelectorAll("a")) {
     if (anchor.ping) anchor.ping = "";
 
-    anchor.addEventListener("click", async (event) => {
-      event.preventDefault();
+    anchor.addEventListener(
+      "click",
+      (event) => {
+        event.preventDefault();
 
-      const protocol = new URL(anchor.href).protocol;
+        const protocol = new URL(anchor.href).protocol;
 
-      if (protocol === "javascript:") return;
+        if (protocol === "javascript:") return;
 
-      let winTarget = event.shiftKey
-        ? "new"
-        : event.ctrlKey || event.button === 1
-        ? "_blank"
-        : anchor.target || "_self";
-      if (
-        (winTarget === "_top" && win.top === window) ||
-        (winTarget === "_parent" && win.parent === window)
-      )
-        winTarget = "_self";
+        let winTarget = event.shiftKey
+          ? "new"
+          : event.ctrlKey || event.button === 1
+          ? "_blank"
+          : anchor.target || "_self";
+        if (
+          (winTarget === "_top" && win.top === window) ||
+          (winTarget === "_parent" && win.parent === window)
+        )
+          winTarget = "_self";
 
-      if (!validProtocols.includes(protocol))
-        return win.open(anchor.href, winTarget);
+        if (!validProtocols.includes(protocol))
+          return win.open(anchor.href, winTarget);
 
-      openWindow(new Request(anchor.href), winTarget, win, client);
-    });
+        openWindow(new Request(anchor.href), winTarget, win, client);
+      },
+      {
+        // preventDefault stops middle clicking when capture is set to false
+        capture: false,
+      }
+    );
   }
 
   for (const img of protoDom.querySelectorAll("img"))
