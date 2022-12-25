@@ -53,7 +53,7 @@ async function _request(
     body: req.body,
     // forcing cache greatly improves load times
     cache: "force-cache",
-    signal: signal,
+    signal,
     method: req.method,
     redirect: "manual",
   });
