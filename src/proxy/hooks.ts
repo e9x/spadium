@@ -176,19 +176,25 @@ async function loadDOM(req: Request, win: Win, client: BareClient) {
   for (const meta of protoDom.querySelectorAll("meta"))
     if (!["encoding", "content-type"].includes(meta.httpEquiv)) meta.remove();
 
-  for (const link of protoDom.querySelectorAll<HTMLLinkElement>(
-    "link[rel='stylesheet']"
-  ))
-    link.replaceWith(await simulateStyleLink(link, win));
+  const styleIterators: AsyncGenerator<string, string, unknown>[] = [];
+
+  for (const node of protoDom.querySelectorAll<
+    HTMLLinkElement | HTMLStyleElement
+  >("link[rel='stylesheet'],style")) {
+    const [replacement, it] =
+      node instanceof HTMLLinkElement
+        ? await simulateStyleLink(node, win)
+        : await simulateStyle(node.textContent || "", win);
+
+    replacement.id = (styleIterators.push(it) - 1).toString();
+
+    node.replaceWith(replacement);
+  }
 
   for (const link of protoDom.querySelectorAll<HTMLLinkElement>(
     "link[rel='preload']"
   ))
     link.remove();
-
-  for (const style of protoDom.querySelectorAll("style")) {
-    style.replaceWith(await simulateStyle(style.textContent || "", win));
-  }
 
   for (const script of protoDom.querySelectorAll("script")) script.remove();
 
@@ -306,4 +312,19 @@ async function loadDOM(req: Request, win: Win, client: BareClient) {
 
   if (protoDom.doctype) win.document.append(protoDom.doctype);
   win.document.append(protoDom.documentElement);
+
+  for (let i = 0; i < styleIterators.length; i++) {
+    const style = win.document.querySelector<HTMLStyleElement>(
+      `style[id="${i}"]`
+    );
+    if (!style) throw new TypeError("couldn't find ref");
+    iterateStyle(style, styleIterators[i]);
+  }
+}
+
+async function iterateStyle(
+  style: HTMLStyleElement,
+  it: AsyncGenerator<string, string, unknown>
+) {
+  for await (const text of it) style.textContent = text;
 }

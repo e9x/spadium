@@ -4,7 +4,7 @@ import { localizeResource, request } from "./request";
 import type { Win } from "./win";
 import { sLocation } from "./win";
 
-async function rewriteCSS(
+async function* rewriteCSS(
   script: string,
   context: string,
   // so we can create a blob inside the window
@@ -32,6 +32,17 @@ async function rewriteCSS(
         console.error(err);
       }
   });
+
+  for (const asset of assets) {
+    const length = asset[1].loc!.end.offset - asset[1].loc!.start.offset;
+    script =
+      script.slice(0, asset[1].loc!.start.offset - offset) +
+      // easy loading laceholder
+      " ".repeat(length) +
+      script.slice(asset[1].loc!.end.offset - offset);
+  }
+
+  yield script;
 
   for (const asset of assets) {
     /*const raw = script.slice(
@@ -64,23 +75,32 @@ async function rewriteCSS(
       script.slice(asset[1].loc!.end.offset - offset);
     offset +=
       asset[1].loc!.end.offset - asset[1].loc!.start.offset - generated.length;
+
+    yield script;
   }
 
   return script;
 }
 
-export async function simulateStyle(source: string, win: Win) {
+export async function simulateStyle(
+  script: string,
+  win: Win
+): Promise<[HTMLStyleElement, AsyncGenerator<string, string, unknown>]> {
   const style = document.createElement("style");
-  style.textContent = await rewriteCSS(source, "stylesheet", win);
-  return style;
+  const it = rewriteCSS(script, "stylesheet", win);
+  // first result is parsed style without external links
+  style.textContent = (await it.next()).value!;
+  // receiver needs to continue the updating
+  return [style, it];
 }
 
 export async function simulateStyleLink(node: HTMLLinkElement, win: Win) {
   const res = await request(new Request(node.href), "style", win);
-  if (!res.ok) throw new Error("Res was not ok");
-  return simulateStyle(await res.text(), win);
+  return await simulateStyle(await res.text(), win);
 }
 
 export async function rewriteCSSValue(value: string, win: Win) {
-  return rewriteCSS(value, "value", win);
+  let style = "";
+  for await (const s of rewriteCSS(value, "value", win)) style = s;
+  return style;
 }
