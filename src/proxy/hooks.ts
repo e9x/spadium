@@ -104,6 +104,12 @@ export default async function loadDOM(
   protoDom.head.append(base);
   win.document.head.append(base.cloneNode());
 
+  for (const noscript of protoDom.querySelectorAll("noscript")) {
+    const fragment = new DocumentFragment();
+    for (const child of noscript.children) fragment.append(child);
+    noscript.replaceWith(fragment);
+  }
+
   const refreshHeader =
     protoDom.querySelector<HTMLMetaElement>("meta[http-equiv='refresh']")
       ?.content || res.headers.get("refresh");
@@ -132,12 +138,6 @@ export default async function loadDOM(
     "link[rel='preload']"
   ))
     link.remove();
-
-  for (const noscript of protoDom.querySelectorAll("noscript")) {
-    const fragment = new DocumentFragment();
-    for (const child of noscript.children) fragment.append(child);
-    noscript.replaceWith(fragment);
-  }
 
   for (const style of protoDom.querySelectorAll("style")) {
     style.replaceWith(await simulateStyle(style.textContent || "", win));
