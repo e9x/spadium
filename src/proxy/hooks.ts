@@ -181,6 +181,18 @@ async function loadDOM(req: Request, win: Win, client: BareClient) {
     node.replaceWith(replacement);
   }
 
+  for (const node of protoDom.querySelectorAll<HTMLElement>("*[style]")) {
+    const style = node.getAttribute("style");
+    if (style) {
+      const [value, it] = await rewriteStyle(style, win);
+      node.setAttribute("style", value);
+      node.setAttribute(
+        "data-porta-proxy-style-attribute-id",
+        (styleAttributeIterators.push(it) - 1).toString()
+      );
+    }
+  }
+
   for (const link of protoDom.querySelectorAll<HTMLLinkElement>(
     "link[rel='preload']"
   ))
@@ -254,18 +266,6 @@ async function loadDOM(req: Request, win: Win, client: BareClient) {
       localizeResource(src, "video", win).then((url) => (track.src = url));
     }
 
-  for (const node of protoDom.querySelectorAll<HTMLElement>("*[style]")) {
-    const style = node.getAttribute("style");
-    if (style) {
-      const [value, it] = await rewriteStyle(style, win);
-      node.setAttribute("style", value);
-      node.setAttribute(
-        "data-porta-proxy-style-id",
-        (styleAttributeIterators.push(it) - 1).toString()
-      );
-    }
-  }
-
   for (const s of protoDom.querySelectorAll<
     HTMLImageElement | HTMLSourceElement
   >("img,source"))
@@ -329,7 +329,7 @@ async function loadDOM(req: Request, win: Win, client: BareClient) {
 
   for (let i = 0; i < styleAttributeIterators.length; i++) {
     const element = win.document.querySelector(
-      `[data-porta-proxy-style-id="${i}"]`
+      `[data-porta-proxy-style-attribute-id="${i}"]`
     );
     if (!element) throw new TypeError("couldn't find ref");
     iterateStyleAttribute(element, styleAttributeIterators[i]);
