@@ -1,7 +1,7 @@
 import { h } from "preact";
 import { useEffect, useState } from "preact/hooks";
 import type { Win } from "./proxy/win";
-import openWindow from "./proxy/hooks";
+import openWindow, { deleteWindow } from "./proxy/hooks";
 import { createBareClient } from "@tomphttp/bare-client";
 
 export default function Spadium({
@@ -19,7 +19,10 @@ export default function Spadium({
     createBareClient(new URL(server, location.toString()), abort.signal).then(
       (client) => openWindow(new Request(src), "_self", win, client, "replace")
     );
-    return () => abort.abort();
+    return () => {
+      deleteWindow(win);
+      abort.abort();
+    };
   }, [server, src, win]);
 
   return (
