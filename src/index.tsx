@@ -1,8 +1,4 @@
-import { render, h } from "preact";
-import Setup from "./Setup";
+import register from "preact-custom-element";
+import Spadium from "./Spadium";
 
-const root = document.getElementById("root");
-
-if (!root) throw new TypeError("Unable to find root.");
-
-render(<Setup />, root);
+register(Spadium, "spadium-proxy", ["src", "server"]);
