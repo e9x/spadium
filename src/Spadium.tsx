@@ -8,13 +8,13 @@ export default function Spadium({
   server,
   src,
 }: {
-  server: string;
-  src: string;
+  server?: string;
+  src?: string;
 }) {
   const [win, setWin] = useState<Win | null>(null);
 
   useEffect(() => {
-    if (!win) return;
+    if (!win || !server || !src) return;
     const abort = new AbortController();
     createBareClient(new URL(server, location.toString()), abort.signal).then(
       (client) => openWindow(new Request(src), "_self", win, client, "replace")
