@@ -10,8 +10,8 @@
   "type": "module",
   "main": "lib/index.cjs",
   "scripts": {
-    "build": "cross-env NODE_ENV=PRODUCTION webpack-cli build",
-    "dev": "cross-env NODE_ENV=PRODUCTION webpack-cli build --watch"
+    "build": "cross-env NODE_ENV=production webpack-cli build",
+    "dev": "cross-env NODE_ENV=development webpack-cli build --watch"
   },
   "devDependencies": {
     "@types/css-tree": "^2.0.0",
