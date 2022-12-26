@@ -8,7 +8,7 @@ const isProd = process.env.NODE_ENV === "production";
  * @type {webpack.Configuration}
  */
 const config = {
-  entry: "./src/index.ts",
+  entry: "./src/customElement.ts",
   output: {
     path: fileURLToPath(new URL("./dist/", import.meta.url)),
     filename: "spadium.js",
