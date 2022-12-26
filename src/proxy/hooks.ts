@@ -313,10 +313,12 @@ async function loadDOM(req: Request, win: Win, client: BareClient) {
       openWindow(req, "_self", win, client);
     });
 
-  win.document.doctype?.remove();
-  win.document.documentElement.remove();
+  win.document.open();
+  if (protoDom.doctype)
+    win.document.write(`<!DOCTYPE ${protoDom.doctype.name}>`);
+  win.document.close();
 
-  if (protoDom.doctype) win.document.append(protoDom.doctype);
+  win.document.documentElement?.remove();
   win.document.append(protoDom.documentElement);
 
   for (let i = 0; i < styleIterators.length; i++) {
