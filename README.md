@@ -8,15 +8,15 @@ Spadium uses the [Bare server](https://github.com/tomphttp/specifications/blob/m
 
 ## Feature comparison
 
-| Feature        | Spadium  | [Ultraviolet](https://github.com/titaniumnetwork-dev/Ultraviolet) |
-| -------------- | -------- | ----------------------------------------------------------------- |
-| Backend        | Document | ServiceWorker                                                     |
-| Cookies        | ✅       | ✅                                                                |
-| HTML rendering | ✅       | ✅                                                                |
-| CSS rendering  | ✅       | ✅                                                                |
-| Video playback | ⛔       | ✅                                                                |
-| Audio playback | ✅       | ✅                                                                |
-| JavaScript     | ⛔       | ✅                                                                |
+| Feature        | Spadium                                    | [Ultraviolet](https://github.com/titaniumnetwork-dev/Ultraviolet) |
+| -------------- | ------------------------------------------ | ----------------------------------------------------------------- |
+| Backend        | Document                                   | ServiceWorker                                                     |
+| Cookies        | <input type="checkbox" disabled checked /> | <input type="checkbox" disabled checked />                        |
+| HTML rendering | <input type="checkbox" disabled checked /> | <input type="checkbox" disabled checked />                        |
+| CSS rendering  | <input type="checkbox" disabled checked /> | <input type="checkbox" disabled checked />                        |
+| Video playback | <input type="checkbox" disabled  />        | <input type="checkbox" disabled checked />                        |
+| Audio playback | <input type="checkbox" disabled checked /> | <input type="checkbox" disabled checked />                        |
+| JavaScript     | <input type="checkbox" disabled />         | <input type="checkbox" disabled checked />                        |
 
 ## Demonstration
 
