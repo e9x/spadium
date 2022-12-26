@@ -8,7 +8,11 @@
   },
   "license": "ISC",
   "files": [
-    "dist"
+    "dist",
+    "static.js",
+    "static.d.ts",
+    "index.js",
+    "index.d.ts"
   ],
   "type": "commonjs",
   "main": "dist/spadium.js",
