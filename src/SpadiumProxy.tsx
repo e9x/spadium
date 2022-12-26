@@ -4,7 +4,7 @@ import type { Win } from "./proxy/win";
 import openWindow, { deleteWindow } from "./proxy/hooks";
 import { createBareClient } from "@tomphttp/bare-client";
 
-export default function Spadium({
+export default function SpadiumProxy({
   server,
   src,
 }: {

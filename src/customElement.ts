@@ -1,4 +1,4 @@
 import register from "preact-custom-element";
-import Spadium from "./Spadium";
+import SpadiumProxy from "./SpadiumProxy";
 
-register(Spadium, "spadium-proxy", ["src", "server"]);
+register(SpadiumProxy, "spadium-proxy", ["src", "server"]);
