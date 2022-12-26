@@ -7,6 +7,9 @@
     "url": "https://github.com/e9x"
   },
   "license": "ISC",
+  "files": [
+    "dist"
+  ],
   "type": "module",
   "main": "lib/index.cjs",
   "scripts": {
