@@ -31,10 +31,6 @@ const config = {
   mode: process.env.NODE_ENV,
   devServer: {
     setupMiddlewares: (middlewares, devServer) => {
-      devServer.app.get("/setup-middleware/some/path", (_, response) => {
-        response.send("setup-middlewares option GET");
-      });
-
       const bare = createBareServer(devServerBare);
 
       devServer.app.use((req, res, next) => {
