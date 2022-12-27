@@ -1,5 +1,5 @@
-import type { CssNode, Raw } from "css-tree";
-import { generate, parse, walk } from "css-tree";
+import type { CssNode } from "css-tree";
+import { parse, walk } from "css-tree";
 import { localizeResource, request } from "./request";
 import type { Win } from "./win";
 import { sLocation } from "./win";
@@ -59,14 +59,9 @@ async function* rewriteCSS(
           };*/
       // TODO: fetch imported style
     } else {
-      generated = generate({
-        type: "Url",
-        value: (await localizeResource(
-          asset[2],
-          "image",
-          win
-        )) as unknown as Raw,
-      });
+      generated = `url(${CSS.escape(
+        await localizeResource(asset[2], "image", win)
+      )})`;
     }
 
     script =
