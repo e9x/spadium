@@ -170,10 +170,8 @@ async function loadDOM(req: Request, win: Win, client: BareClient) {
   for (const node of protoDom.querySelectorAll<HTMLStyleElement>("style"))
     node.replaceWith(await simulateStyle(node.textContent || "", win));
 
-  for (const node of protoDom.querySelectorAll<HTMLElement>("*[style]")) {
-    const style = node.getAttribute("style");
-    if (style) await rewriteStyle(style, node, win);
-  }
+  for (const node of protoDom.querySelectorAll<HTMLElement>("*[style]"))
+    await rewriteStyle(node.style, win);
 
   for (const link of protoDom.querySelectorAll<HTMLLinkElement>(
     "link[rel='preload']"

@@ -96,15 +96,13 @@ export async function simulateStyleLink(node: HTMLLinkElement, win: Win) {
   return await simulateStyle(await res.text(), win);
 }
 
-export async function rewriteStyle(
-  value: string,
-  element: HTMLElement,
-  win: Win
-) {
-  const it = rewriteCSS(value, "declarationList", win);
-  // first result is parsed style without external links
-  element.setAttribute("style", (await it.next()).value!);
-  (async () => {
-    for await (const value of it) element.setAttribute("style", value);
-  })();
+export async function rewriteStyle(style: CSSStyleDeclaration, win: Win) {
+  for (let i = 0; i < style.length; i++) {
+    const name = style[i];
+    const it = rewriteCSS(style.getPropertyValue(name), "value", win);
+    style.setProperty(name, (await it.next()).value!);
+    (async () => {
+      for await (const value of it) style.setProperty(name, value);
+    })();
+  }
 }
