@@ -79,16 +79,16 @@ async function* rewriteCSS(
   return script;
 }
 
-export async function simulateStyle(
-  script: string,
-  win: Win
-): Promise<[HTMLStyleElement, AsyncGenerator<string, string, unknown>]> {
+export async function simulateStyle(script: string, win: Win) {
   const style = document.createElement("style");
   const it = rewriteCSS(script, "stylesheet", win);
   // first result is parsed style without external links
   style.textContent = (await it.next()).value!;
+  (async () => {
+    for await (const value of it) style.textContent = value;
+  })();
   // receiver needs to continue the updating
-  return [style, it];
+  return style;
 }
 
 export async function simulateStyleLink(node: HTMLLinkElement, win: Win) {
@@ -98,10 +98,13 @@ export async function simulateStyleLink(node: HTMLLinkElement, win: Win) {
 
 export async function rewriteStyle(
   value: string,
+  element: HTMLElement,
   win: Win
-): Promise<[string, AsyncGenerator<string, string, unknown>]> {
+) {
   const it = rewriteCSS(value, "declarationList", win);
   // first result is parsed style without external links
-  const newValue = (await it.next()).value!;
-  return [newValue, it];
+  element.setAttribute("style", (await it.next()).value!);
+  (async () => {
+    for await (const value of it) element.setAttribute("style", value);
+  })();
 }

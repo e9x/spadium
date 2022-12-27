@@ -127,7 +127,7 @@ async function loadDOM(req: Request, win: Win, client: BareClient) {
 
   win[sLocation] = new URL(res.finalURL);
 
-  const protoDom = new DOMParser().parseFromString(
+  const protoDom = new win.DOMParser().parseFromString(
     await res.text(),
     "text/html"
   );
@@ -162,35 +162,17 @@ async function loadDOM(req: Request, win: Win, client: BareClient) {
   for (const meta of protoDom.querySelectorAll("meta"))
     if (!["encoding", "content-type"].includes(meta.httpEquiv)) meta.remove();
 
-  const styleAttributeIterators: AsyncGenerator<string, string, unknown>[] = [];
-  const styleIterators: AsyncGenerator<string, string, unknown>[] = [];
+  for (const node of protoDom.querySelectorAll<HTMLLinkElement>(
+    "link[rel='stylesheet']"
+  ))
+    node.replaceWith(await simulateStyleLink(node, win));
 
-  for (const node of protoDom.querySelectorAll<
-    HTMLLinkElement | HTMLStyleElement
-  >("link[rel='stylesheet'],style")) {
-    const [replacement, it] =
-      node instanceof HTMLLinkElement
-        ? await simulateStyleLink(node, win)
-        : await simulateStyle(node.textContent || "", win);
-
-    replacement.setAttribute(
-      "data-porta-proxy-style-id",
-      (styleIterators.push(it) - 1).toString()
-    );
-
-    node.replaceWith(replacement);
-  }
+  for (const node of protoDom.querySelectorAll<HTMLStyleElement>("style"))
+    node.replaceWith(await simulateStyle(node.textContent || "", win));
 
   for (const node of protoDom.querySelectorAll<HTMLElement>("*[style]")) {
     const style = node.getAttribute("style");
-    if (style) {
-      const [value, it] = await rewriteStyle(style, win);
-      node.setAttribute("style", value);
-      node.setAttribute(
-        "data-porta-proxy-style-attribute-id",
-        (styleAttributeIterators.push(it) - 1).toString()
-      );
-    }
+    if (style) await rewriteStyle(style, node, win);
   }
 
   for (const link of protoDom.querySelectorAll<HTMLLinkElement>(
@@ -320,34 +302,4 @@ async function loadDOM(req: Request, win: Win, client: BareClient) {
 
   win.document.documentElement?.remove();
   win.document.append(protoDom.documentElement);
-
-  for (let i = 0; i < styleIterators.length; i++) {
-    const style = win.document.querySelector<HTMLStyleElement>(
-      `style[data-porta-proxy-style-id="${i}"]`
-    );
-    if (!style) throw new TypeError("couldn't find ref");
-    iterateStyle(style, styleIterators[i]);
-  }
-
-  for (let i = 0; i < styleAttributeIterators.length; i++) {
-    const element = win.document.querySelector(
-      `[data-porta-proxy-style-attribute-id="${i}"]`
-    );
-    if (!element) throw new TypeError("couldn't find ref");
-    iterateStyleAttribute(element, styleAttributeIterators[i]);
-  }
-}
-
-async function iterateStyleAttribute(
-  element: Element,
-  it: AsyncGenerator<string, string, unknown>
-) {
-  for await (const text of it) element.setAttribute("style", text);
-}
-
-async function iterateStyle(
-  style: HTMLStyleElement,
-  it: AsyncGenerator<string, string, unknown>
-) {
-  for await (const text of it) style.textContent = text;
 }
