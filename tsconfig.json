@@ -10,7 +10,9 @@
     "jsx": "preserve",
     "jsxFactory": "h",
     "jsxFragmentFactory": "Fragment",
-    "jsxImportSource": "preact"
+    "jsxImportSource": "preact",
+    "baseUrl": "types",
+    "typeRoots": ["node_modules/@types", "types"]
   },
   "include": ["src/**/*"]
 }

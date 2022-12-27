@@ -1,5 +1,7 @@
 import type { CssNode } from "css-tree";
-import { parse, walk } from "css-tree";
+import walk from "css-tree/walker";
+import parse from "css-tree/parser";
+
 import { localizeResource, request } from "./request";
 import type { Win } from "./win";
 import { sLocation } from "./win";
