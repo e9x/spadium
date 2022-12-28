@@ -78,9 +78,7 @@ async function* rewriteCSS(
   yield script;
 
   for (const asset of assets) {
-    const generated = `url(${CSS.escape(
-      await localizeResource(asset[1], "image", win)
-    )})`;
+    const generated = `url(${await localizeResource(asset[1], "image", win)})`;
 
     script =
       script.slice(0, asset[0].start.offset - offset) +
