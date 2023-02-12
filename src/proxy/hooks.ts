@@ -28,10 +28,7 @@ function getContentHistoryId() {
 
 window.addEventListener("popstate", (event) => {
   const data = contentHistory.get(event.state);
-  console.log(event.state, history.state);
-  if (data) {
-    openWindow(data.req, "_self", data.win, data.client, false);
-  }
+  if (data) openWindow(data.req, "_self", data.win, data.client, false);
 });
 
 /**
@@ -230,21 +227,79 @@ async function loadDOM(req: Request, win: Win, client: BareClient) {
       localizeResource(src, "image", win).then((url) => (img.src = url));
     }
 
-  for (const source of protoDom.querySelectorAll("source"))
-    if (source.src) {
-      const { src } = source;
-      source.src = "";
-      // asynchronously load images
-      localizeResource(src, "video", win).then((url) => (source.src = url));
+  for (const video of protoDom.querySelectorAll("video")) {
+    if (video.poster) {
+      const { poster } = video;
+      localizeResource(poster, "image", win).then(
+        (url) => (video.poster = url)
+      );
+      video.poster = "";
     }
 
-  for (const track of protoDom.querySelectorAll("track"))
-    if (track.src) {
-      const { src } = track;
-      track.src = "";
-      // asynchronously load images
-      localizeResource(src, "video", win).then((url) => (track.src = url));
-    }
+    // capture type & src before we detach the sources
+    const sources = [...video.querySelectorAll("source")].map((source) => ({
+      type: source.type,
+      src: source.src,
+    }));
+
+    for (const track of protoDom.querySelectorAll("track"))
+      if (track.src) {
+        const { src } = track;
+        track.src = "";
+        // asynchronously load track
+        localizeResource(src, "track", win).then((url) => (track.src = url));
+      }
+
+    for (const source of video.querySelectorAll("source")) source.remove();
+
+    const source = sources.find((source) =>
+      MediaSource.isTypeSupported(source.type)
+    );
+
+    if (!source) continue;
+
+    request(new Request(source.src), "video", win).then(async (res) => {
+      const blobUrl = URL.createObjectURL(await res.blob());
+      video.src = blobUrl;
+      win[sBlobUrls].push(blobUrl);
+    });
+
+    /*const mediaSource = new MediaSource();
+    const blobUrl = URL.createObjectURL(mediaSource);
+    video.src = blobUrl;
+    win[sBlobUrls].push(blobUrl);
+
+    mediaSource.addEventListener(
+      "sourceopen",
+      () =>
+        request(new Request(source.src), "video", win).then(async (res) => {
+          const reader = res.body?.getReader();
+          if (!reader) return;
+
+          const sourceBuffer = mediaSource.addSourceBuffer(source.type);
+
+          const read = () =>
+            reader.read().then(({ value, done }) => {
+              if (done) {
+                if (value) {
+                  sourceBuffer.appendBuffer(value);
+                  sourceBuffer.addEventListener("updateend", () =>
+                    mediaSource.endOfStream()
+                  );
+                } else mediaSource.endOfStream();
+              } else {
+                sourceBuffer.appendBuffer(value);
+                sourceBuffer.addEventListener("updateend", read);
+              }
+            });
+
+          read();
+        }),
+      { once: true }
+    );*/
+
+    break;
+  }
 
   for (const s of protoDom.querySelectorAll<
     HTMLImageElement | HTMLSourceElement
@@ -253,15 +308,6 @@ async function loadDOM(req: Request, win: Win, client: BareClient) {
       const { srcset } = s;
       s.srcset = "";
       rewriteSrcset(srcset, win).then((srcset) => (s.srcset = srcset));
-    }
-
-  for (const video of protoDom.querySelectorAll("video"))
-    if (video.poster) {
-      const { poster } = video;
-      localizeResource(poster, "image", win).then(
-        (url) => (video.poster = url)
-      );
-      video.poster = "";
     }
 
   for (const svg of protoDom.querySelectorAll("svg")) rewriteSVG(svg, win);
