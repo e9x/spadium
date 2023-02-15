@@ -1,6 +1,6 @@
 {
   "name": "spadium",
-  "version": "1.0.0-alpha.1",
+  "version": "1.0.0-alpha.2",
   "description": "Spadium is a JavaScript browser library that creates an IFrame and manually fetches every asset for a given website, allowing it to be rendered locally without any external requests.",
   "author": {
     "name": "David Reed",
