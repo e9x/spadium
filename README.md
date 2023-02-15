@@ -16,7 +16,7 @@ Spadium uses the [Bare server](https://github.com/tomphttp/specifications/blob/m
 | Cookies        | :white_check_mark:   | :white_check_mark:                                                |
 | HTML rendering | :white_check_mark:   | :white_check_mark:                                                |
 | CSS rendering  | :white_check_mark:   | :white_check_mark:                                                |
-| Video playback | :white_large_square: | :white_check_mark:                                                |
+| Video playback | :white_check_mark:   | :white_check_mark:                                                |
 | Audio playback | :white_check_mark:   | :white_check_mark:                                                |
 | JavaScript     | :white_large_square: | :white_check_mark:                                                |
 
