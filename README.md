@@ -1,4 +1,6 @@
-# Spadium
+<h1 align="center">Spadium</h1>
+
+<p align="center"><img src="./spade.svg" alt="spade" height="100"></p>
 
 Spadium is a JavaScript browser library that creates an IFrame and manually fetches every asset for a given website, allowing it to be rendered locally without any external requests.
 
